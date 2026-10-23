@@ -8,7 +8,8 @@ client state, and reaches all domain data through the API.
 This repository is one component of a larger product. The context that explains how it
 fits together lives in the system repository, `QuetzalSoft/phenomena-atlas`:
 
-- `contracts/openapi.yaml` - the contract this client consumes
+- `contracts/main.tsp` - the contract this client consumes (compiled to
+  `contracts/generated/openapi.yaml`, which is the document to read)
 - `docs/domain.md` - the shared vocabulary
 - `docs/release.md` - how a change crossing components is shipped
 - `docs/architecture.md` - why things are split this way
@@ -26,8 +27,8 @@ inherited from the parent directory.
 
 ## Talking to the API
 
-Types and the request layer are generated from the pinned contract version. Use the
-generated client.
+Types come from the pinned package `@quetzalsoft/phenomena-atlas-contract` and requests
+go through `openapi-fetch`, which is typed by them.
 
 Hand-written fetch calls against API endpoints are not allowed, even for a quick fix.
 They are invisible to the contract, so they survive a breaking change in CI and fail in
@@ -37,6 +38,8 @@ Needing something the API does not expose is a contract change, not a workaround
 `docs/release.md` in the system repository.
 
 ## Stack
+
+React with TypeScript.
 
 > TODO: framework, build tool, package manager, and the test, lint, run and build
 > commands. Fill this in with the first real commit. Keep it to the commands a new
