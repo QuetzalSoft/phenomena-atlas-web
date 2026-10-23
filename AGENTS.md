@@ -22,7 +22,7 @@ git clone git@github.com:QuetzalSoft/phenomena-atlas.git
 cd phenomena-atlas && ./scripts/bootstrap.sh
 ```
 
-That places this repository at `phenomena-atlas/web/`, where the system `CLAUDE.md` is
+That places this repository at `phenomena-atlas/web/`, where the system `AGENTS.md` is
 inherited from the parent directory.
 
 ## Talking to the API
