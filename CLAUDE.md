@@ -51,4 +51,14 @@ React with TypeScript.
   user-facing copy; localisation is a separate concern, not a reason to mix languages
   in the source.
 - Short-lived branches off `main`, pull requests, no long-running branches.
+
+## `main` is protected
+
+This repository is public. `main` requires a pull request and one approving review, and
+cannot be deleted or force-pushed. Organisation admins can bypass all of it, including
+pushing straight to `main`; that is an escape hatch, not a route.
+
+> TODO: there is no required status check here yet, because there is no CI yet. Once
+> this component has a test suite, add it to the ruleset as a required check. Until then
+> a pull request can be merged with failing tests, because nothing is watching.
 - Client-side validation is for user experience. The API is what enforces the rules.
