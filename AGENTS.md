@@ -39,11 +39,17 @@ Needing something the API does not expose is a contract change, not a workaround
 
 ## Stack
 
-React with TypeScript.
+TypeScript on Next.js with the App Router, running on the active Node.js LTS, with Bun as
+the package manager. The map is MapLibre GL JS through `react-map-gl/maplibre`.
 
-> TODO: framework, build tool, package manager, and the test, lint, run and build
-> commands. Fill this in with the first real commit. Keep it to the commands a new
-> contributor would otherwise have to find by reading config files.
+`docs/architecture.md` describes how the code is structured, what runs on the server and
+what in the browser, and the map setup that breaks silently if done wrong. Read it before
+adding a page or a feature. The Next.js server is not a backend: it reaches data only
+through the API. Why this stack was chosen is in ADR 0007 in the system repository.
+
+> TODO: the test, lint, run and build commands. Fill this in with the first real commit.
+> Keep it to the commands a new contributor would otherwise have to find by reading config
+> files.
 
 ## Conventions
 
@@ -53,6 +59,7 @@ React with TypeScript.
 - `main` is production, `develop` integrates the sprint (ADR 0005 in the system
   repository). Branch off `develop` and open pull requests into it. `main` only takes
   releases from `develop` and fixes from `hotfix/*`.
+- Client-side validation is for user experience. The API is what enforces the rules.
 
 ## `main` and `develop` are protected
 
@@ -65,4 +72,3 @@ pushing straight to `main`; that is an escape hatch, not a route.
 > TODO: no test check is required here yet, because there is no test suite yet. Once
 > this component has a test suite, add it to both rulesets as a required check. Until then
 > a pull request can be merged with failing tests, because nothing is watching.
-- Client-side validation is for user experience. The API is what enforces the rules.
