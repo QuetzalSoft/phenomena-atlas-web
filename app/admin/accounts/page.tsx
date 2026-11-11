@@ -42,10 +42,6 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
           <RoleDefinitions current={viewer.state === "signed-in" ? viewer.account.role : undefined} />
         </RolesDialog>
       </div>
-      <p className={ui.lead}>
-        Everyone who has signed in, and what their role lets them do. A role change takes effect
-        on their next request.
-      </p>
       <div className={styles.sections}>{await content(viewer, filters)}</div>
     </main>
   );
