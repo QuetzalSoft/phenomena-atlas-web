@@ -85,6 +85,12 @@ contract:
 - `API_URL` is read on the server and `NEXT_PUBLIC_API_URL` in the browser. They differ
   when the server reaches the API over an internal network.
 
+**Lists filtered by the URL.** A list whose filters live in the URL, such as the accounts
+on `/admin/accounts`, declares its `nuqs` parsers once in a plain module. The page loads them
+with `createLoader` and fetches the first page on the server; the Client Component reads the
+same parsers with `useQueryStates`, shallow, and fetches the next filters from the browser.
+Filtering happens in the API, never on the pages already loaded, because the list is paged.
+
 A value exported from a `"use client"` module reaches Server Components as a client
 reference, not as its value. Constants that both sides need, such as a page size, live in a
 plain module.

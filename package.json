@@ -16,10 +16,11 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@quetzalsoft/phenomena-atlas-contract": "0.1.0-dev.2",
+    "@quetzalsoft/phenomena-atlas-contract": "0.1.0-dev.3",
     "@tanstack/react-query": "5.107.1",
     "next": "16.4.6",
     "next-auth": "5.0.0-beta.32",
+    "nuqs": "2.10.2",
     "openapi-fetch": "0.17.0",
     "openapi-react-query": "0.5.4",
     "react": "19.3.1",

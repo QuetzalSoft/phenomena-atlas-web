@@ -1,6 +1,13 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import ui from "@/components/ui.module.css";
+import {
+  isInvertedRange,
+  loadAccountFilters,
+  toListParams,
+  withAccountFilters,
+  type AccountFilters,
+} from "@/features/account/account-filters";
 import { accountsPageSize } from "@/features/account/accounts-query";
 import { AccountsTable } from "@/features/account/accounts-table";
 import { Notice } from "@/features/account/notice";
@@ -16,10 +23,13 @@ export const dynamic = "force-dynamic";
 
 const path = "/admin/accounts";
 
-export default async function AccountsPage() {
-  const viewer = await getViewer();
+type SearchParams = Record<string, string | string[] | undefined>;
+
+export default async function AccountsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const [viewer, filters] = await Promise.all([getViewer(), loadAccountFilters(searchParams)]);
   if (viewer.state === "anonymous") {
-    redirect(`/auth/sign-in?callbackUrl=${encodeURIComponent(path)}`);
+    // Come back to the same filters after signing in.
+    redirect(`/auth/sign-in?callbackUrl=${encodeURIComponent(withAccountFilters(path, filters))}`);
   }
 
   return (
@@ -30,12 +40,12 @@ export default async function AccountsPage() {
         Everyone who has signed in, and what their role lets them do. A role change takes effect
         on their next request.
       </p>
-      <div className={styles.sections}>{await content(viewer)}</div>
+      <div className={styles.sections}>{await content(viewer, filters)}</div>
     </main>
   );
 }
 
-async function content(viewer: Exclude<Awaited<ReturnType<typeof getViewer>>, { state: "anonymous" }>) {
+async function content(viewer: Exclude<Awaited<ReturnType<typeof getViewer>>, { state: "anonymous" }>, filters: AccountFilters) {
   if (viewer.state === "expired") {
     return (
       <Notice title="Your session has expired" action={<SignInLink label="Sign in again" />}>
@@ -62,14 +72,17 @@ async function content(viewer: Exclude<Awaited<ReturnType<typeof getViewer>>, { 
     );
   }
 
-  const firstPage = await viewer.api
-    .GET("/accounts", { params: { query: { limit: accountsPageSize } }, cache: "no-store" })
-    .catch(() => undefined);
+  // An inverted range is refused by the API; the table explains it without asking.
+  const firstPage = isInvertedRange(filters)
+    ? undefined
+    : await viewer.api
+        .GET("/accounts", { params: { query: { ...toListParams(filters), limit: accountsPageSize } }, cache: "no-store" })
+        .catch(() => undefined);
 
   return (
     <>
-      {firstPage?.data ? (
-        <AccountsTable me={viewer.account} firstPage={firstPage.data} />
+      {isInvertedRange(filters) || firstPage?.data ? (
+        <AccountsTable me={viewer.account} initialFilters={filters} firstPage={firstPage?.data} />
       ) : (
         <Notice title="Accounts could not be loaded">
           The API did not return the list of accounts. Reload the page to try again.
