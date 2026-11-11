@@ -67,7 +67,8 @@ bun run typecheck
 bun run lint
 bunx playwright install chromium   # once
 bun run test:e2e     # production build against the mock API in tests/e2e/mock-api.ts and a
-                     # Keycloak in Docker on :8190. Needs Docker, and Node for the mock
+                     # Keycloak in Docker on :8190. Needs Docker, and Node on the PATH:
+                     # without it Bun stands in for `node` and `next build` fails
 ```
 
 `/dashboard` checks the API from the server and from the browser. With the API from
@@ -91,6 +92,10 @@ and requires the `source-branch` check, which rejects pull requests that do not 
 from `develop` or `hotfix/*`. Organisation admins can bypass all of it, including
 pushing straight to `main`; that is an escape hatch, not a route.
 
-> TODO: no test check is required here yet, because there is no test suite yet. Once
-> this component has a test suite, add it to both rulesets as a required check. Until then
-> a pull request can be merged with failing tests, because nothing is watching.
+Both branches also require the `test` check (`.github/workflows/test.yml`): typecheck,
+lint, and the end-to-end suite, which builds the site for production. It runs on every
+pull request with no paths filter, because a required check that never reports blocks the
+merge. Installing needs the contract package, which is private: this repository needs read
+access to it under the package's "Manage Actions access" settings, and losing that access
+shows up as a 403 in the install step. When the suite fails, its traces are uploaded as
+the `playwright-traces` artifact of the run.
