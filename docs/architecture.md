@@ -184,6 +184,7 @@ app/                        routes only: pages, layouts, metadata
   admin/
     accounts/
       page.tsx
+    regions/                the region editor, and history/ for past versions
   phenomena/
     [id]/
       page.tsx
@@ -196,6 +197,7 @@ src/
     map/
       atlas-map.tsx
       atlas-map-lazy.tsx
+    region/                 the region partition: map layers, editing operations, editor
     phenomenon/
       phenomenon-summary.tsx
   components/               shared presentational components with no data access
@@ -214,12 +216,16 @@ tests/
   contract's `paths`, so a mock that drifts from the contract fails to compile. Sign-in is
   real: the suite starts Keycloak in Docker with `tests/e2e/keycloak-realm.json`, the API
   repository's realm pointed at the test server, and the mock trusts its tokens' claims.
-- **The map is tested for real.** At least one end-to-end test waits for the map canvas
-  and checks that a feature from the mock API is rendered, which also covers the worker
-  setup above.
+- **Unit tests** use Vitest for plain modules, such as the region editing operations in
+  `src/features/region/partition-ops.ts`. They sit next to the code as `*.test.ts`.
+- **The map is tested for real.** The region tests wait until MapLibre has rendered the
+  mock API's regions, which also covers the worker setup above. They run on a blank style
+  (`NEXT_PUBLIC_MAP_STYLE_URL` empty) so no tile server is needed, and click the map at
+  coordinates through `window.__atlasMap`, which the map sets only when
+  `NEXT_PUBLIC_E2E=true`.
 
-The end-to-end suite exists; component tests and the map test do not yet. Like the API, once the suite exists it becomes a required check on
-both rulesets.
+Component tests do not exist yet. The unit and end-to-end suites are part of the required
+`test` check.
 
 ## Enforcement
 

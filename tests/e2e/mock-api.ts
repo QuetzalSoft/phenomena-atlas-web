@@ -15,11 +15,25 @@ type AccountPage = components["schemas"]["AccountPage"];
 type Role = components["schemas"]["Role"];
 type ErrorBody = components["schemas"]["Error"];
 type ChangeRoleBody = paths["/accounts/{accountId}/role"]["put"]["requestBody"]["content"]["application/json"];
+type MunicipalityCollection = components["schemas"]["MunicipalityCollection"];
+type Region = components["schemas"]["Region"];
+type RegionPartition = components["schemas"]["RegionPartition"];
+type PartitionVersion = components["schemas"]["PartitionVersion"];
+type PartitionVersionPage = components["schemas"]["PartitionVersionPage"];
+type PartitionChange = components["schemas"]["PartitionChange"];
+type MultiPolygon = components["schemas"]["GeoJson.MultiPolygon"];
 
 /** Makes the next role change fail with this answer, whatever it asks for. */
 export interface RoleChangeFailure {
   status: 401 | 403 | 404;
   code: string;
+}
+
+/** Makes the next partition save fail with this answer, whatever it sends. */
+export interface SaveFailure {
+  status: 400 | 401 | 403 | 409;
+  code: string;
+  details?: Record<string, unknown>;
 }
 
 /** Accounts created by the test before anyone signs in, such as people who signed in long ago. */
@@ -40,6 +54,90 @@ let mode: HealthMode = "ok";
 let roleChangeFailure: RoleChangeFailure | undefined;
 /** Oldest first, keyed by the token subject. */
 let accounts: { subject: string; account: Account }[] = [];
+
+// Regions: two municipalities drawn as boxes west and east of 103.4° W. Guadalajara starts
+// split in two halves, Zapopan is one region. The mock trusts saved geometry: checking the
+// partition is the API's job, covered by the API's own tests.
+
+/** A rectangle as a MultiPolygon, counter-clockwise. */
+export function box(west: number, south: number, east: number, north: number): MultiPolygon {
+  return {
+    type: "MultiPolygon",
+    coordinates: [[[[west, south], [east, south], [east, north], [west, north], [west, south]]]],
+  };
+}
+
+const municipalities: MunicipalityCollection = {
+  type: "FeatureCollection",
+  features: [
+    { type: "Feature", id: "14039", properties: { name: "Guadalajara" }, geometry: box(-103.4, 20.6, -103.3, 20.7) },
+    { type: "Feature", id: "14120", properties: { name: "Zapopan" }, geometry: box(-103.5, 20.6, -103.4, 20.7) },
+  ],
+};
+
+function initialRegions(): Region[] {
+  const region = (id: number, name: string, population: number, municipalityCode: string, geometry: MultiPolygon): Region => ({
+    type: "Feature",
+    id,
+    properties: { name, population, municipalityCode },
+    geometry,
+  });
+  return [
+    region(1, "Centro", 1000, "14039", box(-103.4, 20.6, -103.35, 20.7)),
+    region(2, "Oblatos", 600, "14039", box(-103.35, 20.6, -103.3, 20.7)),
+    region(3, "Zapopan centro", 2000, "14120", box(-103.5, 20.6, -103.4, 20.7)),
+  ];
+}
+
+/** Every saved version, oldest first, with the partition as it stood. */
+let versions: { summary: PartitionVersion; regions: Region[] }[] = [];
+let nextRegionId = 4;
+let saveFailure: SaveFailure | undefined;
+
+function resetRegions() {
+  versions = [
+    {
+      summary: { number: 1, createdAt: "2026-01-01T00:00:00Z", added: [1, 2, 3], changed: [], retired: [] },
+      regions: initialRegions(),
+    },
+  ];
+  nextRegionId = 4;
+  saveFailure = undefined;
+}
+resetRegions();
+
+function partitionAt(entry: { summary: PartitionVersion; regions: Region[] }): RegionPartition {
+  return { type: "FeatureCollection", version: entry.summary.number, createdAt: entry.summary.createdAt, features: entry.regions };
+}
+
+/** Applies a change as the API would once it passes its checks. */
+function savePartition(change: PartitionChange, author: Account): PartitionVersion {
+  const latest = versions.at(-1)!;
+  const regions = new Map(latest.regions.map((region) => [region.id, region]));
+  const summary: PartitionVersion = {
+    number: latest.summary.number + 1,
+    createdAt: new Date().toISOString(),
+    author: { id: author.id, ...(author.username && { username: author.username }), ...(author.name && { name: author.name }) },
+    added: [],
+    changed: [],
+    retired: [...change.retiredRegionIds],
+  };
+  for (const id of change.retiredRegionIds) {
+    regions.delete(id);
+  }
+  for (const draft of change.regions) {
+    const id = draft.id ?? nextRegionId++;
+    (draft.id === undefined ? summary.added : summary.changed).push(id);
+    regions.set(id, {
+      type: "Feature",
+      id,
+      properties: { name: draft.name, population: draft.population, municipalityCode: draft.municipalityCode },
+      geometry: draft.geometry,
+    });
+  }
+  versions.push({ summary, regions: [...regions.values()] });
+  return summary;
+}
 
 function send(response: ServerResponse, status: number, body?: unknown, headers: Record<string, string> = {}) {
   response.writeHead(status, {
@@ -114,6 +212,7 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
     const { seed = [] } = await readJson<{ seed?: SeedAccount[] }>(request);
     mode = "ok";
     roleChangeFailure = undefined;
+    resetRegions();
     const createdAt = Date.parse("2026-01-01T00:00:00Z");
     accounts = seed.map(({ username, role, name, createdAt: at }, index) => ({
       subject: randomUUID(),
@@ -133,10 +232,26 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
     return send(response, 200, {});
   }
 
+  if (route === "POST /__mock/save-failure") {
+    saveFailure = await readJson<SaveFailure>(request);
+    return send(response, 200, {});
+  }
+  if (route === "POST /__mock/save-as-someone-else") {
+    // Another admin saves first: the next save from the page is based on an old version.
+    const latest = versions.at(-1)!;
+    const someone: Account = { id: randomUUID(), username: "other-admin", role: "admin", createdAt: "2026-01-01T00:00:00Z" };
+    const first = latest.regions[0]!;
+    return send(
+      response,
+      200,
+      savePartition({ baseVersion: latest.summary.number, regions: [{ id: first.id, ...first.properties, geometry: first.geometry }], retiredRegionIds: [] }, someone),
+    );
+  }
+
   // CORS preflight for the browser's authenticated calls.
   if (request.method === "OPTIONS") {
     return send(response, 204, undefined, {
-      "access-control-allow-methods": "GET, PUT",
+      "access-control-allow-methods": "GET, PUT, POST",
       "access-control-allow-headers": "authorization, content-type",
     });
   }
@@ -153,7 +268,15 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
     return send(response, 200, body);
   }
 
-  if (!url.pathname.startsWith("/accounts")) {
+  // Public reads.
+  if (route === "GET /municipalities") {
+    return send(response, 200, municipalities);
+  }
+  if (route === "GET /region-partition") {
+    return send(response, 200, partitionAt(versions.at(-1)!));
+  }
+
+  if (!url.pathname.startsWith("/accounts") && !url.pathname.startsWith("/region-partition/")) {
     return fail(response, 404, "not_found", "Not declared by the mock.");
   }
 
@@ -201,6 +324,39 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
       ...(end < matching.length && { nextCursor: String(end) }),
     };
     return send(response, 200, body);
+  }
+
+  if (route === "GET /region-partition/versions") {
+    const limit = Number(url.searchParams.get("limit") ?? 50);
+    const start = Number(url.searchParams.get("cursor") ?? 0);
+    const newestFirst = versions.map((entry) => entry.summary).reverse();
+    const end = start + limit;
+    const body: PartitionVersionPage = {
+      items: newestFirst.slice(start, end),
+      ...(end < newestFirst.length && { nextCursor: String(end) }),
+    };
+    return send(response, 200, body);
+  }
+  const versionRoute = url.pathname.match(/^\/region-partition\/versions\/(\d+)$/);
+  if (request.method === "GET" && versionRoute) {
+    const entry = versions.find((candidate) => candidate.summary.number === Number(versionRoute[1]));
+    return entry ? send(response, 200, partitionAt(entry)) : fail(response, 404, "partition_version_not_found", "No such version.");
+  }
+  if (route === "POST /region-partition/versions") {
+    const change = await readJson<PartitionChange>(request);
+    if (saveFailure) {
+      const { status, code, details } = saveFailure;
+      saveFailure = undefined;
+      const body: ErrorBody = { code, message: "Mocked failure.", ...(details && { details }) };
+      return send(response, status, body);
+    }
+    if (change.baseVersion !== versions.at(-1)!.summary.number) {
+      return fail(response, 409, "partition_version_conflict", "The partition changed since baseVersion.");
+    }
+    if (change.regions.length === 0 && change.retiredRegionIds.length === 0) {
+      return fail(response, 400, "empty_change", "The change changes nothing.");
+    }
+    return send(response, 201, savePartition(change, me));
   }
 
   const roleRoute = url.pathname.match(/^\/accounts\/([^/]+)\/role$/);

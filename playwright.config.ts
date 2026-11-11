@@ -55,6 +55,9 @@ export default defineConfig({
         AUTH_SECRET: "end-to-end-tests-only-not-a-real-secret",
         AUTH_KEYCLOAK_ID: "phenomena-atlas-web",
         AUTH_KEYCLOAK_ISSUER: keycloakIssuer,
+        // A blank basemap, so tests need no tile server; and the map exposed to the tests.
+        NEXT_PUBLIC_MAP_STYLE_URL: "",
+        NEXT_PUBLIC_E2E: "true",
       },
       timeout: 180_000,
       reuseExistingServer: !process.env.CI,

@@ -17,6 +17,9 @@
   --neutral: #5b6372;
   --neutral-bg: #eef0f3;
   --radius: 12px;
+  /* The width of the header and the page. A page marked data-page-width="wide", such as a
+     map editor, widens both so they stay aligned. */
+  --page-width: 960px;
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
@@ -41,6 +44,10 @@
     --neutral: #9aa3b2;
     --neutral-bg: #222630;
   }
+}
+
+:root:has(main[data-page-width="wide"]) {
+  --page-width: 1440px;
 }
 
 *,

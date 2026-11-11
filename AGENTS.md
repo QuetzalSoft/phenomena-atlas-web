@@ -65,6 +65,7 @@ bun run dev          # :3000, expects the API at the URLs in .env.local
 bun run build && bun run start
 bun run typecheck
 bun run lint
+bun run test         # unit tests (Vitest), *.test.ts next to the code
 bunx playwright install chromium   # once
 bun run test:e2e     # production build against the mock API in tests/e2e/mock-api.ts and a
                      # Keycloak in Docker on :8190. Needs Docker, and Node on the PATH:
@@ -99,3 +100,13 @@ merge. Installing needs the contract package, which is private: this repository 
 access to it under the package's "Manage Actions access" settings, and losing that access
 shows up as a 403 in the install step. When the suite fails, its traces are uploaded as
 the `playwright-traces` artifact of the run.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+## This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
