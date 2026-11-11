@@ -107,19 +107,16 @@ export function AccountsTable({ me, initialFilters, firstPage }: AccountsTablePr
   }
 
   return (
-    <section aria-labelledby="accounts-title">
-      <div className={styles.sectionHeader}>
-        <h2 id="accounts-title" className={styles.sectionTitle}>Accounts</h2>
-        {accounts.data && !inverted && (
-          <span className={styles.muted} data-testid="accounts-count" aria-live="polite">
-            {rows.length} {filtered ? "matching " : ""}
-            {rows.length === 1 ? "account" : "accounts"}
-            {accounts.hasNextPage ? " loaded" : ""}
-          </span>
-        )}
-      </div>
-
+    <section aria-label="Accounts">
       <AccountsFilters filters={filters} onChange={changeFilters} />
+
+      {accounts.data && !inverted && (
+        <p className={styles.resultCount} data-testid="accounts-count" aria-live="polite">
+          {rows.length} {filtered ? "matching " : ""}
+          {rows.length === 1 ? "account" : "accounts"}
+          {accounts.hasNextPage ? " loaded" : ""}
+        </p>
+      )}
 
       <div className={styles.tableCard} data-refreshing={refreshing || undefined} aria-busy={refreshing || undefined}>
         <div className={styles.tableScroll}>

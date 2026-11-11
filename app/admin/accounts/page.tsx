@@ -12,6 +12,7 @@ import { accountsPageSize } from "@/features/account/accounts-query";
 import { AccountsTable } from "@/features/account/accounts-table";
 import { Notice } from "@/features/account/notice";
 import { RoleDefinitions } from "@/features/account/role-definitions";
+import { RolesDialog } from "@/features/account/roles-dialog";
 import { SignInLink } from "@/features/account/sign-in-link";
 import { getViewer } from "@/lib/api/server";
 import styles from "@/features/account/account.module.css";
@@ -35,11 +36,12 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
   return (
     <main className={ui.page}>
       <p className={ui.eyebrow}>Administration</p>
-      <h1 className={ui.title}>Accounts and roles</h1>
-      <p className={ui.lead}>
-        Everyone who has signed in, and what their role lets them do. A role change takes effect
-        on their next request.
-      </p>
+      <div className={styles.titleRow}>
+        <h1 className={ui.title}>Accounts and roles</h1>
+        <RolesDialog>
+          <RoleDefinitions current={viewer.state === "signed-in" ? viewer.account.role : undefined} />
+        </RolesDialog>
+      </div>
       <div className={styles.sections}>{await content(viewer, filters)}</div>
     </main>
   );
@@ -63,12 +65,9 @@ async function content(viewer: Exclude<Awaited<ReturnType<typeof getViewer>>, { 
   }
   if (viewer.account.role !== "admin") {
     return (
-      <>
-        <Notice title="This page needs the admin role" testId="admin-required">
-          Only admins can see and change accounts. Ask an admin if you need a different role.
-        </Notice>
-        <RoleDefinitions current={viewer.account.role} />
-      </>
+      <Notice title="This page needs the admin role" testId="admin-required">
+        Only admins can see and change accounts. Ask an admin if you need a different role.
+      </Notice>
     );
   }
 
@@ -79,16 +78,11 @@ async function content(viewer: Exclude<Awaited<ReturnType<typeof getViewer>>, { 
         .GET("/accounts", { params: { query: { ...toListParams(filters), limit: accountsPageSize } }, cache: "no-store" })
         .catch(() => undefined);
 
-  return (
-    <>
-      {isInvertedRange(filters) || firstPage?.data ? (
-        <AccountsTable me={viewer.account} initialFilters={filters} firstPage={firstPage?.data} />
-      ) : (
-        <Notice title="Accounts could not be loaded">
-          The API did not return the list of accounts. Reload the page to try again.
-        </Notice>
-      )}
-      <RoleDefinitions current={viewer.account.role} />
-    </>
+  return isInvertedRange(filters) || firstPage?.data ? (
+    <AccountsTable me={viewer.account} initialFilters={filters} firstPage={firstPage?.data} />
+  ) : (
+    <Notice title="Accounts could not be loaded">
+      The API did not return the list of accounts. Reload the page to try again.
+    </Notice>
   );
 }
