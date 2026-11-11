@@ -5,7 +5,8 @@ import { keepPreviousData, useInfiniteQuery, useMutation, useQueryClient, type I
 import { useQueryStates } from "nuqs";
 import { useCallback, useState, type ReactNode } from "react";
 import ui from "@/components/ui.module.css";
-import { errorCode, type ApiClient } from "@/lib/api";
+import type { ApiClient } from "@/lib/api";
+import { call, RequestFailed } from "@/lib/api/request";
 import { useSessionApi } from "@/lib/api/use-session-api";
 import {
   accountFilterParsers,
@@ -25,26 +26,6 @@ import styles from "./account.module.css";
 type Account = components["schemas"]["Account"];
 type AccountPage = components["schemas"]["AccountPage"];
 type QueryKey = ReturnType<typeof accountsQueryKey>;
-
-/** A failed call, reduced to what the copy depends on. */
-class RequestFailed extends Error {
-  constructor(readonly status: number | undefined, readonly code: string | undefined) {
-    super(code ?? `HTTP ${status ?? "unreachable"}`);
-  }
-}
-
-async function call<T>(request: () => Promise<{ data?: T; error?: unknown; response: Response }>): Promise<T> {
-  let result;
-  try {
-    result = await request();
-  } catch {
-    throw new RequestFailed(undefined, undefined);
-  }
-  if (result.data === undefined) {
-    throw new RequestFailed(result.response.status, errorCode(result.error));
-  }
-  return result.data;
-}
 
 interface AccountsTableProps {
   me: Account;

@@ -1,4 +1,4 @@
-# Typecheck, lint, build and the end-to-end suite, on every pull request.
+# Typecheck, lint, unit tests, build and the end-to-end suite, on every pull request.
 #
 # The `test` job is a required check on develop and main. Like the contract check in the
 # system repository, it runs on every pull request with no paths filter: GitHub cannot tell
@@ -51,6 +51,9 @@ jobs:
 
       - name: Lint
         run: bun run lint
+
+      - name: Unit tests
+        run: bun run test
 
       - name: Install Chromium
         run: bunx playwright install --with-deps chromium

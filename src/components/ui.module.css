@@ -1,7 +1,7 @@
 /* Shared page furniture: the page frame, its heading, cards and buttons. */
 
 .page {
-  max-width: 960px;
+  max-width: var(--page-width);
   margin: 0 auto;
   padding: 56px 24px 72px;
 }
