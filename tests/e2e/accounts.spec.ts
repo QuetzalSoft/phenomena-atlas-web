@@ -54,7 +54,8 @@ test("a user is told the page needs the admin role", async ({ page }) => {
 
   await expect(page.getByTestId("admin-required")).toContainText("This page needs the admin role");
   await expect(page.getByTestId("accounts-table")).toHaveCount(0);
-  await expect(page.getByTestId("role-definitions")).toContainText("Your role");
+  await page.getByRole("button", { name: "About roles" }).click();
+  await expect(page.getByRole("dialog", { name: "Roles" }).getByTestId("role-definitions")).toContainText("Your role");
 });
 
 test("an admin pages through every account", async ({ page }) => {
@@ -135,4 +136,28 @@ test("signing out ends the Keycloak session too", async ({ page }) => {
   // Keycloak asks for the password again instead of signing straight back in.
   await page.goto("/admin/accounts");
   await expect(page.locator("#password")).toBeVisible();
+});
+
+test("the roles are explained in a dialog next to the title", async ({ page }) => {
+  await page.goto("/admin/accounts");
+  await logInAtKeycloak(page, "admin");
+  const dialog = page.getByRole("dialog", { name: "Roles" });
+  await expect(dialog).toBeHidden();
+
+  await page.getByRole("button", { name: "About roles" }).click();
+
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("listitem")).toHaveCount(3);
+  await expect(dialog.getByRole("listitem").filter({ hasText: "Your role" })).toContainText("Admin");
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole("button", { name: "About roles" })).toBeFocused();
+
+  await page.getByRole("button", { name: "About roles" }).click();
+  await dialog.getByRole("button", { name: "Close" }).click();
+  await expect(dialog).toBeHidden();
+
+  await page.getByRole("button", { name: "About roles" }).click();
+  await page.mouse.click(5, 5);
+  await expect(dialog).toBeHidden();
 });
