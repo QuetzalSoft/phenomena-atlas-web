@@ -26,6 +26,9 @@ export interface RoleChangeFailure {
 export interface SeedAccount {
   username: string;
   role: Role;
+  name?: string;
+  /** Defaults to one minute after the previous seed account, starting on 2026-01-01. */
+  createdAt?: string;
 }
 
 const port = Number(process.env.MOCK_API_PORT ?? 8100);
@@ -112,14 +115,15 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
     mode = "ok";
     roleChangeFailure = undefined;
     const createdAt = Date.parse("2026-01-01T00:00:00Z");
-    accounts = seed.map(({ username, role }, index) => ({
+    accounts = seed.map(({ username, role, name, createdAt: at }, index) => ({
       subject: randomUUID(),
       account: {
         id: randomUUID(),
         username,
+        ...(name && { name }),
         email: `${username}@example.test`,
         role,
-        createdAt: new Date(createdAt + index * 60_000).toISOString(),
+        createdAt: at ?? new Date(createdAt + index * 60_000).toISOString(),
       },
     }));
     return send(response, 200, {});
@@ -168,15 +172,33 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
   }
 
   if (route === "GET /accounts") {
-    const limit = Number(url.searchParams.get("limit") ?? 50);
-    const start = Number(url.searchParams.get("cursor") ?? 0);
+    const query = url.searchParams;
+    const limit = Number(query.get("limit") ?? 50);
+    const start = Number(query.get("cursor") ?? 0);
     if (!Number.isInteger(limit) || limit < 1 || limit > 200 || !Number.isInteger(start) || start < 0) {
       return fail(response, 400, "invalid_request", "limit or cursor is not valid.");
     }
+    // The same filters as the API: optional, combined with AND.
+    const role = query.get("role");
+    const text = query.get("q")?.toLowerCase();
+    const from = query.has("createdFrom") ? Date.parse(query.get("createdFrom")!) : undefined;
+    const before = query.has("createdBefore") ? Date.parse(query.get("createdBefore")!) : undefined;
+    if (from !== undefined && before !== undefined && from >= before) {
+      return fail(response, 400, "invalid_date_range", "createdFrom must be earlier than createdBefore.");
+    }
+    const matching = accounts
+      .map((entry) => entry.account)
+      .filter(
+        (account) =>
+          (!role || account.role === role) &&
+          (!text || [account.username, account.name, account.email].some((field) => field?.toLowerCase().includes(text))) &&
+          (from === undefined || Date.parse(account.createdAt) >= from) &&
+          (before === undefined || Date.parse(account.createdAt) < before),
+      );
     const end = start + limit;
     const body: AccountPage = {
-      items: accounts.slice(start, end).map((entry) => entry.account),
-      ...(end < accounts.length && { nextCursor: String(end) }),
+      items: matching.slice(start, end),
+      ...(end < matching.length && { nextCursor: String(end) }),
     };
     return send(response, 200, body);
   }

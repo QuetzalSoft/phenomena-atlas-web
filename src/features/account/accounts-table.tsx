@@ -1,12 +1,22 @@
 "use client";
 
 import type { components } from "@quetzalsoft/phenomena-atlas-contract";
-import { useInfiniteQuery, useMutation, useQueryClient, type InfiniteData } from "@tanstack/react-query";
-import { useState } from "react";
+import { keepPreviousData, useInfiniteQuery, useMutation, useQueryClient, type InfiniteData } from "@tanstack/react-query";
+import { useQueryStates } from "nuqs";
+import { useCallback, useState, type ReactNode } from "react";
 import ui from "@/components/ui.module.css";
 import { errorCode, type ApiClient } from "@/lib/api";
 import { useSessionApi } from "@/lib/api/use-session-api";
-import { accountsPageSize, accountsQueryKey as queryKey } from "./accounts-query";
+import {
+  accountFilterParsers,
+  hasFilters,
+  isInvertedRange,
+  noAccountFilters,
+  toListParams,
+  type AccountFilters,
+} from "./account-filters";
+import { AccountsFilters } from "./accounts-filters";
+import { accountsPageSize, accountsQueryKey } from "./accounts-query";
 import { displayName } from "./display-name";
 import { roleInfo, roles, type Role } from "./role";
 import { SignInLink } from "./sign-in-link";
@@ -14,7 +24,7 @@ import styles from "./account.module.css";
 
 type Account = components["schemas"]["Account"];
 type AccountPage = components["schemas"]["AccountPage"];
-
+type QueryKey = ReturnType<typeof accountsQueryKey>;
 
 /** A failed call, reduced to what the copy depends on. */
 class RequestFailed extends Error {
@@ -36,35 +46,82 @@ async function call<T>(request: () => Promise<{ data?: T; error?: unknown; respo
   return result.data;
 }
 
-function listAccounts(api: ApiClient, cursor: string | undefined, signal: AbortSignal) {
-  return call(() => api.GET("/accounts", { params: { query: { limit: accountsPageSize, cursor } }, signal }));
+interface AccountsTableProps {
+  me: Account;
+  /** The filters the server rendered with, and the first page it loaded for them. */
+  initialFilters: AccountFilters;
+  firstPage: AccountPage | undefined;
 }
 
-/** Every account with its role, oldest first. Admins change other accounts' roles here. */
-export function AccountsTable({ me, firstPage }: { me: Account; firstPage: AccountPage }) {
+/**
+ * Every account with its role, oldest first, narrowed by the filters in the URL. Admins
+ * change other accounts' roles here.
+ */
+export function AccountsTable({ me, initialFilters, firstPage }: AccountsTableProps) {
   const api = useSessionApi();
+  // Shallow: changing a filter fetches from the browser instead of re-rendering the page.
+  const [filters, setFilters] = useQueryStates(accountFilterParsers, { history: "replace" });
+  const changeFilters = useCallback((patch: Partial<AccountFilters>) => void setFilters(patch), [setFilters]);
+  const clearFilters = () => changeFilters(noAccountFilters);
+
+  const params = toListParams(filters);
+  const queryKey = accountsQueryKey(params);
+  const inverted = isInvertedRange(filters);
+  const filtered = hasFilters(filters);
+  const renderedByServer =
+    firstPage !== undefined && JSON.stringify(queryKey) === JSON.stringify(accountsQueryKey(toListParams(initialFilters)));
+
   const accounts = useInfiniteQuery({
     queryKey,
-    queryFn: ({ pageParam, signal }) => listAccounts(api, pageParam, signal),
+    queryFn: ({ pageParam, signal }) =>
+      call(() => api.GET("/accounts", { params: { query: { ...params, limit: accountsPageSize, cursor: pageParam } }, signal })),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.nextCursor,
-    initialData: { pages: [firstPage], pageParams: [undefined] },
+    ...(renderedByServer && { initialData: { pages: [firstPage], pageParams: [undefined] } }),
+    // Keep showing the previous results while the next filters load, instead of an empty table.
+    placeholderData: keepPreviousData,
+    enabled: !inverted,
     // The server just loaded the first page. Do not load it again straight away.
     staleTime: 30_000,
   });
 
-  const rows = accounts.data.pages.flatMap((page) => page.items);
+  const rows = inverted ? [] : (accounts.data?.pages.flatMap((page) => page.items) ?? []);
+  const refreshing = accounts.isFetching && accounts.isPlaceholderData;
+
+  let emptyState: ReactNode;
+  if (inverted) {
+    emptyState = "Fix the date range to see accounts.";
+  } else if (accounts.isPending) {
+    emptyState = "Loading accounts...";
+  } else if (accounts.isError && !accounts.isFetchNextPageError) {
+    emptyState = failureCopy(accounts.error, "The accounts could not be loaded. Try again.");
+  } else if (rows.length === 0) {
+    emptyState = filtered ? (
+      <>
+        No accounts match these filters.{" "}
+        <button type="button" className={styles.linkButton} onClick={clearFilters}>Clear filters</button>
+      </>
+    ) : (
+      "No accounts yet."
+    );
+  }
 
   return (
     <section aria-labelledby="accounts-title">
       <div className={styles.sectionHeader}>
         <h2 id="accounts-title" className={styles.sectionTitle}>Accounts</h2>
-        <span className={styles.muted} data-testid="accounts-count">
-          {rows.length} {rows.length === 1 ? "account" : "accounts"}{accounts.hasNextPage ? " loaded" : ""}
-        </span>
+        {accounts.data && !inverted && (
+          <span className={styles.muted} data-testid="accounts-count" aria-live="polite">
+            {rows.length} {filtered ? "matching " : ""}
+            {rows.length === 1 ? "account" : "accounts"}
+            {accounts.hasNextPage ? " loaded" : ""}
+          </span>
+        )}
       </div>
 
-      <div className={styles.tableCard}>
+      <AccountsFilters filters={filters} onChange={changeFilters} />
+
+      <div className={styles.tableCard} data-refreshing={refreshing || undefined} aria-busy={refreshing || undefined}>
         <div className={styles.tableScroll}>
           <table className={styles.table} data-testid="accounts-table">
             <thead>
@@ -75,14 +132,22 @@ export function AccountsTable({ me, firstPage }: { me: Account; firstPage: Accou
               </tr>
             </thead>
             <tbody>
-              {rows.map((account) => (
-                <AccountRow key={account.id} account={account} isMe={account.id === me.id} api={api} />
-              ))}
+              {emptyState ? (
+                <tr>
+                  <td colSpan={3} className={styles.emptyState} data-testid="accounts-empty">
+                    {emptyState}
+                  </td>
+                </tr>
+              ) : (
+                rows.map((account) => (
+                  <AccountRow key={account.id} account={account} isMe={account.id === me.id} api={api} queryKey={queryKey} />
+                ))
+              )}
             </tbody>
           </table>
         </div>
 
-        {(accounts.hasNextPage || accounts.isFetchNextPageError) && (
+        {!emptyState && (accounts.hasNextPage || accounts.isFetchNextPageError) && (
           <footer className={styles.tableFooter}>
             {accounts.isFetchNextPageError && (
               <p className={styles.errorText} role="alert">
@@ -104,13 +169,15 @@ export function AccountsTable({ me, firstPage }: { me: Account; firstPage: Accou
   );
 }
 
-function AccountRow({ account, isMe, api }: { account: Account; isMe: boolean; api: ApiClient }) {
+function AccountRow({ account, isMe, api, queryKey }: { account: Account; isMe: boolean; api: ApiClient; queryKey: QueryKey }) {
   const queryClient = useQueryClient();
   const [failure, setFailure] = useState<RequestFailed | undefined>();
   const change = useMutation({
     mutationFn: (role: Role) =>
       call(() => api.PUT("/accounts/{accountId}/role", { params: { path: { accountId: account.id } }, body: { role } })),
     onMutate: () => setFailure(undefined),
+    // Updated in place, even when the new role no longer matches the role filter: a row that
+    // vanished from under the pointer would look like a failure. It leaves on the next load.
     onSuccess: (updated) => {
       queryClient.setQueryData<InfiniteData<AccountPage, string | undefined>>(queryKey, (data) =>
         data && {
@@ -189,6 +256,8 @@ function failureCopy(error: unknown, fallback: string): string {
       return "This account no longer exists. Reload the page.";
     case "unauthorized":
       return "Your session has expired.";
+    case "invalid_date_range":
+      return "The end date is before the start date.";
     case "forbidden":
       return "You no longer have the admin role. Reload the page.";
     default:
