@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { checkHealth } from "./check-health";
 import { HealthCard } from "./health-card";
-import styles from "./system-status.module.css";
+import ui from "@/components/ui.module.css";
 
 const refreshMs = 10_000;
 
@@ -22,7 +22,7 @@ export function BrowserHealthCard() {
       description={<>Client Components reach the API at <code>NEXT_PUBLIC_API_URL</code>. Checked every {refreshMs / 1000} seconds.</>}
       check={data}
       action={
-        <button type="button" className={styles.button} onClick={() => void refetch()} disabled={isFetching}>
+        <button type="button" className={ui.button} onClick={() => void refetch()} disabled={isFetching}>
           {isFetching ? "Checking..." : "Check again"}
         </button>
       }

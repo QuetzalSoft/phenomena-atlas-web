@@ -51,7 +51,13 @@ through the API. Why this stack was chosen is in ADR 0007 in the system reposito
 
 The contract package comes from GitHub Packages, so installing needs `GITHUB_TOKEN` set to
 a token with `read:packages` (`export GITHUB_TOKEN=$(gh auth token)` after
-`gh auth refresh -s read:packages`). Copy `.env.example` to `.env.local`.
+`gh auth refresh -s read:packages`). Copy `.env.example` to `.env.local` and set `AUTH_SECRET` (`openssl rand -base64 32`).
+
+Signing in needs Keycloak, which the API repository runs: `docker compose up -d --wait` in
+`../api`. Its realm has a `dev` user (password `dev`) and an `admin` user (password `admin`);
+`bun run set-role 00000000-0000-4000-8000-000000000001 admin` in `../api` makes the latter
+an admin, who can open `/admin/accounts`. How the web keeps and forwards tokens is in
+`docs/architecture.md`, "Authentication".
 
 ```sh
 bun install
@@ -60,7 +66,8 @@ bun run build && bun run start
 bun run typecheck
 bun run lint
 bunx playwright install chromium   # once
-bun run test:e2e     # production build against the mock API in tests/e2e/mock-api.ts
+bun run test:e2e     # production build against the mock API in tests/e2e/mock-api.ts and a
+                     # Keycloak in Docker on :8190. Needs Docker, and Node for the mock
 ```
 
 `/dashboard` checks the API from the server and from the browser. With the API from
