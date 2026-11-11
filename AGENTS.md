@@ -47,9 +47,24 @@ what in the browser, and the map setup that breaks silently if done wrong. Read 
 adding a page or a feature. The Next.js server is not a backend: it reaches data only
 through the API. Why this stack was chosen is in ADR 0007 in the system repository.
 
-> TODO: the test, lint, run and build commands. Fill this in with the first real commit.
-> Keep it to the commands a new contributor would otherwise have to find by reading config
-> files.
+## Commands
+
+The contract package comes from GitHub Packages, so installing needs `GITHUB_TOKEN` set to
+a token with `read:packages` (`export GITHUB_TOKEN=$(gh auth token)` after
+`gh auth refresh -s read:packages`). Copy `.env.example` to `.env.local`.
+
+```sh
+bun install
+bun run dev          # :3000, expects the API at the URLs in .env.local
+bun run build && bun run start
+bun run typecheck
+bun run lint
+bunx playwright install chromium   # once
+bun run test:e2e     # production build against the mock API in tests/e2e/mock-api.ts
+```
+
+`/dashboard` checks the API from the server and from the browser. With the API from
+`../api` running, it is the quickest way to see the whole chain work.
 
 ## Conventions
 
