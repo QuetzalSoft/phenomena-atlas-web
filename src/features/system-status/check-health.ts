@@ -1,4 +1,4 @@
-import { api, apiBaseUrl } from "@/lib/api";
+import { api, apiBaseUrl, errorCode } from "@/lib/api";
 
 const timeoutMs = 5000;
 
@@ -34,12 +34,4 @@ export async function checkHealth(): Promise<HealthCheck> {
   } catch {
     return { ...base, outcome: "unreachable" };
   }
-}
-
-/** Failures come back as the contract's Error shape. Only its code is meant for client logic. */
-function errorCode(error: unknown): string | undefined {
-  if (typeof error === "object" && error !== null && "code" in error && typeof error.code === "string") {
-    return error.code;
-  }
-  return undefined;
 }

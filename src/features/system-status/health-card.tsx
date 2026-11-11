@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { HealthCheck } from "./check-health";
 import { CheckedAt } from "./checked-at";
+import ui from "@/components/ui.module.css";
 import styles from "./system-status.module.css";
 
 type Status = "pending" | HealthCheck["outcome"];
@@ -24,7 +25,7 @@ export function HealthCard({ title, description, check, action, testId }: Health
   const status: Status = check?.outcome ?? "pending";
 
   return (
-    <section className={styles.card} aria-labelledby={`${testId}-title`} data-testid={testId}>
+    <section className={ui.card} aria-labelledby={`${testId}-title`} data-testid={testId}>
       <header className={styles.cardHeader}>
         <h2 id={`${testId}-title`} className={styles.cardTitle}>{title}</h2>
         <span className={styles.status} data-status={status} data-testid={`${testId}-status`}>

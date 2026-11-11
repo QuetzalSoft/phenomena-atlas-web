@@ -7,6 +7,7 @@
   --text-muted: #5b6372;
   --accent: #2856d9;
   --accent-text: #ffffff;
+  --accent-bg: #e9effc;
   --ok: #16794a;
   --ok-bg: #e6f4ec;
   --warn: #a5560b;
@@ -30,6 +31,7 @@
     --text-muted: #9aa3b2;
     --accent: #6b8ff0;
     --accent-text: #0f1115;
+    --accent-bg: #1b2440;
     --ok: #4fc78b;
     --ok-bg: #12291e;
     --warn: #eda55c;

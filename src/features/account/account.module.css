@@ -1,0 +1,295 @@
+.sections {
+  display: grid;
+  gap: 40px;
+  margin-top: 32px;
+}
+
+.sectionHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 600;
+}
+
+.muted {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.sectionHeader .muted {
+  margin: 0;
+}
+
+/* Notices */
+
+.notice {
+  gap: 0;
+}
+
+.noticeAction {
+  margin-top: 18px;
+}
+
+/* Role badge, shared by the header, the table and the role list */
+
+.roleBadge {
+  --role-fg: var(--neutral);
+  --role-bg: var(--neutral-bg);
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--role-bg);
+  color: var(--role-fg);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.roleBadge[data-role="analyst"],
+.roleSelect[data-role="analyst"] {
+  --role-fg: var(--ok);
+  --role-bg: var(--ok-bg);
+}
+
+.roleBadge[data-role="admin"],
+.roleSelect[data-role="admin"] {
+  --role-fg: var(--accent);
+  --role-bg: var(--accent-bg);
+}
+
+/* Header */
+
+.who {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.whoName {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Accounts table */
+
+.tableCard {
+  margin-top: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.tableScroll {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.table th {
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 14px 20px;
+  vertical-align: top;
+}
+
+.table tbody tr + tr td {
+  border-top: 1px solid var(--border);
+}
+
+/* Lines the text up with the middle of the role select beside it. */
+.table td:first-child,
+.table td.createdColumn {
+  padding-top: 19px;
+}
+
+.table td:nth-child(2) {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.createdColumn {
+  width: 1%;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.table th.createdColumn {
+  text-align: right;
+}
+
+.accountName {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.accountDetail {
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.youTag {
+  padding: 1px 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.roleSelect {
+  --role-fg: var(--neutral);
+  --role-bg: var(--neutral-bg);
+  min-width: 120px;
+  padding: 5px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--role-bg);
+  color: var(--role-fg);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.roleSelect:hover:not(:disabled) {
+  border-color: var(--role-fg);
+}
+
+.roleSelect:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.roleSelect:disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
+}
+
+.roleSelect option {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.rowNote,
+.errorText {
+  max-width: 28ch;
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  white-space: normal;
+}
+
+.errorText {
+  color: var(--danger);
+}
+
+.tableFooter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+}
+
+.tableFooter .errorText {
+  max-width: none;
+  margin: 0 auto 0 0;
+  font-size: 14px;
+}
+
+/* Role list */
+
+.roleList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 16px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.roleList > li[data-current] {
+  border-color: var(--accent);
+}
+
+.roleHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.rolePurpose {
+  margin: 12px 0 0;
+  font-size: 14px;
+}
+
+.roleIncludes {
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .table th,
+  .table td {
+    padding-inline: 14px;
+  }
+
+  .createdColumn {
+    display: none;
+  }
+
+  .whoName {
+    max-width: 14ch;
+  }
+}
