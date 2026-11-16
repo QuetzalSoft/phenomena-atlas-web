@@ -22,6 +22,11 @@ type PartitionVersion = components["schemas"]["PartitionVersion"];
 type PartitionVersionPage = components["schemas"]["PartitionVersionPage"];
 type PartitionChange = components["schemas"]["PartitionChange"];
 type MultiPolygon = components["schemas"]["GeoJson.MultiPolygon"];
+type Phenomenon = components["schemas"]["Phenomenon"];
+type PhenomenonDefinition = components["schemas"]["PhenomenonDefinition"];
+type PhenomenonChange = components["schemas"]["PhenomenonChange"];
+type PhenomenonStatusChange = components["schemas"]["PhenomenonStatusChange"];
+type WeightingExpression = components["schemas"]["WeightingExpression"];
 
 /** Makes the next role change fail with this answer, whatever it asks for. */
 export interface RoleChangeFailure {
@@ -31,6 +36,13 @@ export interface RoleChangeFailure {
 
 /** Makes the next partition save fail with this answer, whatever it sends. */
 export interface SaveFailure {
+  status: 400 | 401 | 403 | 409;
+  code: string;
+  details?: Record<string, unknown>;
+}
+
+/** Makes the next phenomenon save or status change fail with this answer, whatever it sends. */
+export interface PhenomenonFailure {
   status: 400 | 401 | 403 | 409;
   code: string;
   details?: Record<string, unknown>;
@@ -105,6 +117,33 @@ function resetRegions() {
   saveFailure = undefined;
 }
 resetRegions();
+
+// Phenomena. The mock keeps what admins save and checks only the revision and the status
+// rules; checking definitions is the API's job, covered by the API's own tests.
+
+let phenomena: Phenomenon[] = [];
+let nextPhenomenonId = 1;
+let phenomenonFailure: PhenomenonFailure | undefined;
+
+function resetPhenomena() {
+  phenomena = [];
+  nextPhenomenonId = 1;
+  phenomenonFailure = undefined;
+}
+resetPhenomena();
+
+function storePhenomenon(definition: PhenomenonDefinition, status: Phenomenon["status"] = "draft"): Phenomenon {
+  const now = new Date().toISOString();
+  const phenomenon: Phenomenon = { id: nextPhenomenonId++, ...definition, status, revision: 1, createdAt: now, updatedAt: now };
+  phenomena.push(phenomenon);
+  return phenomenon;
+}
+
+function hasBlank(node: WeightingExpression): boolean {
+  return node.kind === "blank" || (node.kind === "operation" && (hasBlank(node.left) || hasBlank(node.right)));
+}
+
+const transitions: Record<Phenomenon["status"], Phenomenon["status"][]> = { draft: ["published"], published: ["archived"], archived: ["published"] };
 
 function partitionAt(entry: { summary: PartitionVersion; regions: Region[] }): RegionPartition {
   return { type: "FeatureCollection", version: entry.summary.number, createdAt: entry.summary.createdAt, features: entry.regions };
@@ -213,6 +252,7 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
     mode = "ok";
     roleChangeFailure = undefined;
     resetRegions();
+    resetPhenomena();
     const createdAt = Date.parse("2026-01-01T00:00:00Z");
     accounts = seed.map(({ username, role, name, createdAt: at }, index) => ({
       subject: randomUUID(),
@@ -230,6 +270,23 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
   if (route === "POST /__mock/role-change-failure") {
     roleChangeFailure = await readJson<RoleChangeFailure>(request);
     return send(response, 200, {});
+  }
+
+  if (route === "POST /__mock/phenomena") {
+    // Stores phenomena as if an admin had defined them before the test.
+    const { items } = await readJson<{ items: (PhenomenonDefinition & { status?: Phenomenon["status"] })[] }>(request);
+    return send(response, 200, { items: items.map(({ status, ...definition }) => storePhenomenon(definition, status)) });
+  }
+  if (route === "POST /__mock/phenomenon-failure") {
+    phenomenonFailure = await readJson<PhenomenonFailure>(request);
+    return send(response, 200, {});
+  }
+  if (route === "POST /__mock/phenomenon-saved-elsewhere") {
+    // Another admin saves first: the next change from the page is based on an old revision.
+    const { id } = await readJson<{ id: number }>(request);
+    const phenomenon = phenomena.find((candidate) => candidate.id === id)!;
+    Object.assign(phenomenon, { name: `${phenomenon.name} (edited elsewhere)`, revision: phenomenon.revision + 1, updatedAt: new Date().toISOString() });
+    return send(response, 200, phenomenon);
   }
 
   if (route === "POST /__mock/save-failure") {
@@ -251,7 +308,7 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
   // CORS preflight for the browser's authenticated calls.
   if (request.method === "OPTIONS") {
     return send(response, 204, undefined, {
-      "access-control-allow-methods": "GET, PUT, POST",
+      "access-control-allow-methods": "GET, PUT, POST, DELETE",
       "access-control-allow-headers": "authorization, content-type",
     });
   }
@@ -276,8 +333,28 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
     return send(response, 200, partitionAt(versions.at(-1)!));
   }
 
-  if (!url.pathname.startsWith("/accounts") && !url.pathname.startsWith("/region-partition/")) {
+  const phenomenonRoute = url.pathname.match(/^\/phenomena(?:\/(\d+)(\/status)?)?$/);
+  if (!url.pathname.startsWith("/accounts") && !url.pathname.startsWith("/region-partition/") && !phenomenonRoute) {
     return fail(response, 404, "not_found", "Not declared by the mock.");
+  }
+
+  // Reading phenomena is public; admins also see drafts and archived ones.
+  if (phenomenonRoute && request.method === "GET") {
+    const caller = claimsOf(request);
+    const isAdmin = caller !== undefined && accountOf(caller).role === "admin";
+    const visible = phenomena.filter((phenomenon) => isAdmin || phenomenon.status === "published");
+    if (!phenomenonRoute[1]) {
+      const status = url.searchParams.get("status");
+      if (status && status !== "published" && !isAdmin) {
+        return fail(response, 403, "forbidden", "Admins only.");
+      }
+      const items = visible
+        .filter((phenomenon) => !status || phenomenon.status === status)
+        .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()) || a.id - b.id);
+      return send(response, 200, { items });
+    }
+    const found = visible.find((phenomenon) => phenomenon.id === Number(phenomenonRoute[1]));
+    return found ? send(response, 200, found) : fail(response, 404, "phenomenon_not_found", "No such phenomenon.");
   }
 
   const claims = claimsOf(request);
@@ -357,6 +434,49 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
       return fail(response, 400, "empty_change", "The change changes nothing.");
     }
     return send(response, 201, savePartition(change, me));
+  }
+
+  if (route === "POST /phenomena") {
+    return send(response, 201, storePhenomenon(await readJson<PhenomenonDefinition>(request)));
+  }
+  if (phenomenonRoute?.[1]) {
+    const phenomenon = phenomena.find((candidate) => candidate.id === Number(phenomenonRoute[1]));
+    if (!phenomenon) {
+      return fail(response, 404, "phenomenon_not_found", "No such phenomenon.");
+    }
+    if (request.method === "DELETE") {
+      if (phenomenon.status !== "draft") {
+        return fail(response, 409, "phenomenon_not_draft", "Only a draft can be deleted.");
+      }
+      phenomena = phenomena.filter((candidate) => candidate !== phenomenon);
+      return send(response, 204);
+    }
+    if (request.method === "PUT") {
+      const body = await readJson<PhenomenonChange & PhenomenonStatusChange>(request);
+      if (phenomenonFailure) {
+        const { status, code, details } = phenomenonFailure;
+        phenomenonFailure = undefined;
+        const failure: ErrorBody = { code, message: "Mocked failure.", ...(details && { details }) };
+        return send(response, status, failure);
+      }
+      if (body.baseRevision !== phenomenon.revision) {
+        return fail(response, 409, "phenomenon_revision_conflict", "The phenomenon changed since baseRevision.");
+      }
+      if (phenomenonRoute[2]) {
+        if (!transitions[phenomenon.status].includes(body.status)) {
+          return fail(response, 409, "invalid_status_transition", "Not allowed.");
+        }
+        if (body.status === "published" && hasBlank(phenomenon.weightingFunction)) {
+          return fail(response, 400, "incomplete_weighting_function", "The function has a blank.");
+        }
+        Object.assign(phenomenon, { status: body.status });
+      } else {
+        const { name, description, characteristics, weightingFunction } = body;
+        Object.assign(phenomenon, { name, description, characteristics, weightingFunction });
+      }
+      Object.assign(phenomenon, { revision: phenomenon.revision + 1, updatedAt: new Date().toISOString() });
+      return send(response, 200, phenomenon);
+    }
   }
 
   const roleRoute = url.pathname.match(/^\/accounts\/([^/]+)\/role$/);

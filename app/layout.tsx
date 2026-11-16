@@ -26,6 +26,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                 <NavLink href="/dashboard">System status</NavLink>
                 {isAdmin && <NavLink href="/admin/accounts">Accounts</NavLink>}
                 {isAdmin && <NavLink href="/admin/regions">Regions</NavLink>}
+                {isAdmin && <NavLink href="/admin/phenomena">Phenomena</NavLink>}
               </>
             }
             account={<AccountMenu />}

@@ -18,7 +18,7 @@ export const roleInfo: Record<Role, { label: string; purpose: string; includes?:
   },
   admin: {
     label: "Admin",
-    purpose: "Operates and governs the system, including accounts and their roles.",
+    purpose: "Operates and governs the system: phenomena, regions, accounts and their roles.",
     includes: "Includes everything an analyst can do.",
   },
 };

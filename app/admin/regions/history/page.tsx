@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import ui from "@/components/ui.module.css";
-import { AdminGate } from "@/features/region/admin-gate";
+import { AdminGate } from "@/features/account/admin-gate";
 import { PartitionHistory } from "@/features/region/partition-history";
 import styles from "@/features/region/regions.module.css";
 
