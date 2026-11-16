@@ -185,9 +185,7 @@ app/                        routes only: pages, layouts, metadata
     accounts/
       page.tsx
     regions/                the region editor, and history/ for past versions
-  phenomena/
-    [id]/
-      page.tsx
+    phenomena/              the list of phenomena, and [id]/ for one phenomenon's editor
 src/
   lib/
     api/                    the typed client, the only way to reach the API
@@ -198,15 +196,13 @@ src/
       atlas-map.tsx
       atlas-map-lazy.tsx
     region/                 the region partition: map layers, editing operations, editor
-    phenomenon/
-      phenomenon-summary.tsx
+    phenomenon/             phenomena: characteristics editor, weighting function blocks
   components/               shared presentational components with no data access
 tests/
   e2e/
 ```
 
-`phenomenon` is an illustration of the layout. Feature folders are named after terms in
-`docs/domain.md` in the system repository, which does not define them yet.
+Feature folders are named after terms in `docs/domain.md` in the system repository.
 
 ## Testing
 
@@ -217,7 +213,8 @@ tests/
   real: the suite starts Keycloak in Docker with `tests/e2e/keycloak-realm.json`, the API
   repository's realm pointed at the test server, and the mock trusts its tokens' claims.
 - **Unit tests** use Vitest for plain modules, such as the region editing operations in
-  `src/features/region/partition-ops.ts`. They sit next to the code as `*.test.ts`.
+  `src/features/region/partition-ops.ts` and the weighting function tree operations in
+  `src/features/phenomenon/weighting-tree.ts`. They sit next to the code as `*.test.ts`.
 - **The map is tested for real.** The region tests wait until MapLibre has rendered the
   mock API's regions, which also covers the worker setup above. They run on a blank style
   (`NEXT_PUBLIC_MAP_STYLE_URL` empty) so no tile server is needed, and click the map at
