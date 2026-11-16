@@ -251,6 +251,19 @@ test("a refused save says why and keeps the changes", async ({ page }) => {
   await expect(message(page)).toHaveText("Saved as version 2.");
 });
 
+test("the map view is kept in the URL and comes back on reload", async ({ page }) => {
+  await openEditor(page);
+  await page.evaluate(() => window.__atlasMap!.jumpTo({ center: [-103.35, 20.68], zoom: 13 }));
+  await expect(page).toHaveURL("/admin/regions?lng=-103.35&lat=20.68&zoom=13");
+
+  await page.reload();
+  await waitForRegions(page);
+  const view = await page.evaluate(() => ({ ...window.__atlasMap!.getCenter(), zoom: window.__atlasMap!.getZoom() }));
+  expect(view.lng).toBeCloseTo(-103.35, 5);
+  expect(view.lat).toBeCloseTo(20.68, 5);
+  expect(view.zoom).toBeCloseTo(13, 2);
+});
+
 test("the history shows each version and what it changed", async ({ page }) => {
   await openEditor(page);
   await clickMap(page, ...centro);

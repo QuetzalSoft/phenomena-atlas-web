@@ -3,13 +3,14 @@
 import type { Feature, FeatureCollection } from "geojson";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useQueryStates } from "nuqs";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Layer, type MapLayerMouseEvent, type MapRef, NavigationControl, Source } from "react-map-gl/maplibre";
 import ui from "@/components/ui.module.css";
 import { SignInLink } from "@/features/account/sign-in-link";
 import { AtlasMapLazy } from "@/features/map/atlas-map-lazy";
-import { mapViewParsers, roundView } from "@/features/map/map-view";
+import { mapViewParsers, replaceViewInUrl } from "@/features/map/map-view";
 import { call, RequestFailed } from "@/lib/api/request";
 import { useSessionApi } from "@/lib/api/use-session-api";
 import { applyEdit, draftFrom, hasChanges, nextNewKey, type PartitionDraft, savedKey, toChange } from "./partition-draft";
@@ -83,7 +84,9 @@ export function RegionEditor() {
   const [pendingSplit, setPendingSplit] = useState<PendingSplit>();
   const [message, setMessage] = useState<Message>();
   const [problem, setProblem] = useState<Problem>();
-  const [view, setView] = useQueryStates(mapViewParsers, { history: "replace" });
+  // Read once for the initial view; moves are written by replaceViewInUrl.
+  const [view] = useQueryStates(mapViewParsers);
+  const pathname = usePathname();
 
   const selected = selectedKey ? draft?.regions.get(selectedKey) : undefined;
   const hovered = hoveredKey ? draft?.regions.get(hoveredKey) : undefined;
@@ -319,7 +322,7 @@ export function RegionEditor() {
                 ? { longitude: view.lng, latitude: view.lat, zoom: view.zoom }
                 : { bounds: boundsOf(municipalities.data.features.map((feature) => feature.geometry)), fitBoundsOptions: { padding: 32 } }
             }
-            onMoveEnd={(event) => void setView(roundView(event.viewState))}
+            onMoveEnd={(event) => replaceViewInUrl(pathname, event.viewState)}
             interactiveLayerIds={[regionFillLayer]}
             onClick={onMapClick}
             onMouseMove={(event) => {
