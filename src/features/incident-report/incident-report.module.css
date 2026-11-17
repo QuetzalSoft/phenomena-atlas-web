@@ -1,0 +1,285 @@
+/* Filing an incident report, and the list of one's own reports. */
+
+.sections {
+  display: grid;
+  gap: 24px;
+  margin-top: 28px;
+}
+
+/* The report itself, inside .sections: its cards keep the same rhythm without a second margin. */
+.form {
+  display: grid;
+  gap: 24px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  padding: 22px 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.muted {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px 18px;
+  align-items: start;
+}
+
+.wide {
+  grid-column: 1 / -1;
+}
+
+.optional {
+  font-weight: 400;
+}
+
+.choiceField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.choiceField legend {
+  margin-bottom: 4px;
+  padding: 0;
+}
+
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  min-height: 35px;
+}
+
+.withUnit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.unit {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.privacy {
+  display: flex;
+  gap: 10px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--accent-bg);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.privacy svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--accent);
+}
+
+.submitBar {
+  position: sticky;
+  bottom: 16px;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.08);
+}
+
+.submitBar p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.message {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--danger-bg);
+  font-size: 14px;
+}
+
+.message p {
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.success {
+  border-color: var(--ok);
+}
+
+.successTitle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.successTitle svg {
+  color: var(--ok);
+}
+
+/* A filed report, as a card in the list or as the summary after filing. */
+
+.reports {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.report {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 16px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.reportHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+}
+
+.reportTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.reportMeta {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.reportDescription {
+  margin: 0;
+  font-size: 14px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.values {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px 18px;
+  margin: 0;
+}
+
+.values div {
+  min-width: 0;
+}
+
+.values dt {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.values dd {
+  margin: 0;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px 16px;
+  margin-top: 28px;
+}
+
+.toolbar .filter {
+  flex: 0 1 280px;
+}
+
+.emptyState {
+  margin: 0;
+  padding: 28px 20px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.card > .emptyState {
+  padding: 6px 0;
+}
+
+.more {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+@media (max-width: 560px) {
+  .card {
+    padding: 18px 16px;
+  }
+
+  /* On a phone a sticky bar would cover a fifth of the screen: it ends the form instead. */
+  .submitBar {
+    position: static;
+  }
+
+  .toolbar .filter {
+    flex-basis: 100%;
+  }
+}

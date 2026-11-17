@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, type ReactNode } from "react";
+import { Field } from "@/components/field";
 import ui from "@/components/ui.module.css";
 import {
   type CategoryOption,
@@ -368,31 +368,3 @@ function CategoryOptions({ item, path, onChange, issues, disabled }: { item: Cha
   );
 }
 
-interface FieldProps {
-  label: string;
-  hint?: string;
-  issue?: string | undefined;
-  className?: string;
-  /** Renders the control, which spreads `field` to get its id and description. */
-  children: (field: { id: string; "aria-describedby"?: string }) => ReactNode;
-}
-
-/**
- * A labelled control with a hint or, when there is one, the problem to fix. Only the label
- * names the control; the hint or problem describes it.
- */
-function Field({ label, hint, issue, className, children }: FieldProps) {
-  const id = useId();
-  const describedBy = issue ? `${id}-issue` : hint ? `${id}-hint` : undefined;
-  return (
-    <div className={`${styles.field} ${className ?? ""}`}>
-      <label htmlFor={id}>{label}</label>
-      {children({ id, ...(describedBy && { "aria-describedby": describedBy }) })}
-      {issue ? (
-        <span id={`${id}-issue`} className={styles.errorText}>{issue}</span>
-      ) : (
-        hint && <span id={`${id}-hint`} className={styles.hint}>{hint}</span>
-      )}
-    </div>
-  );
-}

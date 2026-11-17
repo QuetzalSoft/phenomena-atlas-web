@@ -186,6 +186,9 @@ app/                        routes only: pages, layouts, metadata
       page.tsx
     regions/                the region editor, and history/ for past versions
     phenomena/              the list of phenomena, and [id]/ for one phenomenon's editor
+  reports/
+    new/                    filing an incident report, for anyone signed in
+    mine/                   the reports the signed-in person filed
 src/
   lib/
     api/                    the typed client, the only way to reach the API
@@ -197,7 +200,9 @@ src/
       atlas-map-lazy.tsx
     region/                 the region partition: map layers, editing operations, editor
     phenomenon/             phenomena: characteristics editor, weighting function blocks
-  components/               shared presentational components with no data access
+    incident-report/        the report form, built from a phenomenon's characteristics, and one's own reports
+  components/               shared presentational components with no data access, such as
+                            the labelled Field, the searchable SearchSelect and form.module.css
 tests/
   e2e/
 ```

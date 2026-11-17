@@ -445,3 +445,37 @@
     padding: 24px 16px 32px;
   }
 }
+
+/* Region preview: the partition on a small map, with the chosen region highlighted. */
+
+.pickerMap {
+  position: relative;
+  height: 260px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--neutral-bg);
+}
+
+/* Top left: the zoom controls take the top right and the attribution the bottom right. */
+.pickerCaption {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  max-width: calc(100% - 64px);
+  margin: 0;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 400;
+  pointer-events: none;
+}
+
+@media (max-width: 560px) {
+  .pickerMap {
+    height: 200px;
+  }
+}

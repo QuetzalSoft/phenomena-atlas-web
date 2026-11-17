@@ -1,0 +1,94 @@
+/* Form furniture shared by features: a labelled field, its control, and its hint or problem. */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.errorText {
+  margin: 0;
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.input {
+  width: 100%;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.input[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+.input:disabled {
+  background: var(--neutral-bg);
+  color: var(--text-muted);
+}
+
+textarea.input {
+  min-height: 72px;
+  resize: vertical;
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.check input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+/* Qualified by element so it beats ui.module.css's .button whatever order the two load in. */
+button.primary,
+a.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+button.primary:hover:not(:disabled),
+a.primary:hover {
+  background: var(--accent);
+  filter: brightness(1.08);
+}
+
+button.primary:disabled {
+  border-color: var(--border);
+  background: var(--neutral-bg);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}

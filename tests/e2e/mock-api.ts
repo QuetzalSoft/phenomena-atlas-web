@@ -27,6 +27,9 @@ type PhenomenonDefinition = components["schemas"]["PhenomenonDefinition"];
 type PhenomenonChange = components["schemas"]["PhenomenonChange"];
 type PhenomenonStatusChange = components["schemas"]["PhenomenonStatusChange"];
 type WeightingExpression = components["schemas"]["WeightingExpression"];
+type IncidentReport = components["schemas"]["IncidentReport"];
+type IncidentReportDraft = components["schemas"]["IncidentReportDraft"];
+type IncidentReportPage = components["schemas"]["IncidentReportPage"];
 
 /** Makes the next role change fail with this answer, whatever it asks for. */
 export interface RoleChangeFailure {
@@ -44,6 +47,13 @@ export interface SaveFailure {
 /** Makes the next phenomenon save or status change fail with this answer, whatever it sends. */
 export interface PhenomenonFailure {
   status: 400 | 401 | 403 | 409;
+  code: string;
+  details?: Record<string, unknown>;
+}
+
+/** Makes the next report fail with this answer, whatever it sends. */
+export interface ReportFailure {
+  status: 400 | 401 | 404 | 409;
   code: string;
   details?: Record<string, unknown>;
 }
@@ -66,6 +76,20 @@ let mode: HealthMode = "ok";
 let roleChangeFailure: RoleChangeFailure | undefined;
 /** Oldest first, keyed by the token subject. */
 let accounts: { subject: string; account: Account }[] = [];
+
+// Incident reports, newest last, with the account that filed each. The mock checks only the
+// phenomenon's status, the region and the day; checking values is the API's job, covered by
+// the API's own tests.
+let reports: { authorId: string; report: IncidentReport }[] = [];
+let nextReportId = 1;
+let reportFailure: ReportFailure | undefined;
+
+function resetReports() {
+  reports = [];
+  nextReportId = 1;
+  reportFailure = undefined;
+}
+resetReports();
 
 // Regions: two municipalities drawn as boxes west and east of 103.4° W. Guadalajara starts
 // split in two halves, Zapopan is one region. The mock trusts saved geometry: checking the
@@ -253,6 +277,7 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
     roleChangeFailure = undefined;
     resetRegions();
     resetPhenomena();
+    resetReports();
     const createdAt = Date.parse("2026-01-01T00:00:00Z");
     accounts = seed.map(({ username, role, name, createdAt: at }, index) => ({
       subject: randomUUID(),
@@ -276,6 +301,10 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
     // Stores phenomena as if an admin had defined them before the test.
     const { items } = await readJson<{ items: (PhenomenonDefinition & { status?: Phenomenon["status"] })[] }>(request);
     return send(response, 200, { items: items.map(({ status, ...definition }) => storePhenomenon(definition, status)) });
+  }
+  if (route === "POST /__mock/report-failure") {
+    reportFailure = await readJson<ReportFailure>(request);
+    return send(response, 200, {});
   }
   if (route === "POST /__mock/phenomenon-failure") {
     phenomenonFailure = await readJson<PhenomenonFailure>(request);
@@ -334,7 +363,8 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
   }
 
   const phenomenonRoute = url.pathname.match(/^\/phenomena(?:\/(\d+)(\/status)?)?$/);
-  if (!url.pathname.startsWith("/accounts") && !url.pathname.startsWith("/region-partition/") && !phenomenonRoute) {
+  const reportRoute = url.pathname.match(/^\/phenomena\/(\d+)\/incident-reports$/);
+  if (!url.pathname.startsWith("/accounts") && !url.pathname.startsWith("/region-partition/") && !phenomenonRoute && !reportRoute) {
     return fail(response, 404, "not_found", "Not declared by the mock.");
   }
 
@@ -365,6 +395,57 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
 
   if (route === "GET /accounts/me") {
     return send(response, 200, me);
+  }
+
+  if (route === "GET /accounts/me/incident-reports") {
+    const limit = Number(url.searchParams.get("limit") ?? 50);
+    const start = Number(url.searchParams.get("cursor") ?? 0);
+    const phenomenonId = url.searchParams.get("phenomenonId");
+    const mine = reports
+      .filter((entry) => entry.authorId === me.id && (!phenomenonId || entry.report.phenomenonId === Number(phenomenonId)))
+      .map((entry) => entry.report)
+      .reverse();
+    const end = start + limit;
+    const body: IncidentReportPage = { items: mine.slice(start, end), ...(end < mine.length && { nextCursor: String(end) }) };
+    return send(response, 200, body);
+  }
+
+  if (reportRoute && request.method === "POST") {
+    const draft = await readJson<IncidentReportDraft>(request);
+    if (reportFailure) {
+      const { status, code, details } = reportFailure;
+      reportFailure = undefined;
+      const failure: ErrorBody = { code, message: "Mocked failure.", ...(details && { details }) };
+      return send(response, status, failure);
+    }
+    const phenomenon = phenomena.find((candidate) => candidate.id === Number(reportRoute[1]));
+    if (!phenomenon || (phenomenon.status !== "published" && me.role !== "admin")) {
+      return fail(response, 404, "phenomenon_not_found", "No such phenomenon.");
+    }
+    if (phenomenon.status !== "published") {
+      return fail(response, 409, "phenomenon_not_accepting_reports", "Not published.");
+    }
+    const region = versions.at(-1)!.regions.find((candidate) => candidate.id === draft.regionId);
+    if (!region) {
+      return send(response, 400, { code: "region_not_found", message: "Not in the partition.", details: { path: "/regionId" } } satisfies ErrorBody);
+    }
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Mexico_City" }).format(new Date());
+    if (draft.occurredOn > today) {
+      return send(response, 400, { code: "occurred_in_future", message: "After today.", details: { path: "/occurredOn" } } satisfies ErrorBody);
+    }
+    const report: IncidentReport = {
+      id: nextReportId++,
+      phenomenonId: phenomenon.id,
+      phenomenonName: phenomenon.name,
+      regionId: region.id,
+      regionName: region.properties.name,
+      occurredOn: draft.occurredOn,
+      ...(draft.description !== undefined && { description: draft.description }),
+      values: draft.values,
+      createdAt: new Date().toISOString(),
+    };
+    reports.push({ authorId: me.id, report });
+    return send(response, 201, report);
   }
 
   if (me.role !== "admin") {
