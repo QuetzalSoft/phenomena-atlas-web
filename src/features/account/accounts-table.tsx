@@ -2,6 +2,7 @@
 
 import type { components } from "@quetzalsoft/phenomena-atlas-contract";
 import { keepPreviousData, useInfiniteQuery, useMutation, useQueryClient, type InfiniteData } from "@tanstack/react-query";
+import Link from "next/link";
 import { useQueryStates } from "nuqs";
 import { useCallback, useState, type ReactNode } from "react";
 import ui from "@/components/ui.module.css";
@@ -19,6 +20,7 @@ import {
 import { AccountsFilters } from "./accounts-filters";
 import { accountsPageSize, accountsQueryKey } from "./accounts-query";
 import { displayName } from "./display-name";
+import { ProfileForm } from "./profile-form";
 import { roleInfo, roles, type Role } from "./role";
 import { SignInLink } from "./sign-in-link";
 import styles from "./account.module.css";
@@ -150,23 +152,14 @@ export function AccountsTable({ me, initialFilters, firstPage }: AccountsTablePr
 function AccountRow({ account, isMe, api, queryKey }: { account: Account; isMe: boolean; api: ApiClient; queryKey: QueryKey }) {
   const queryClient = useQueryClient();
   const [failure, setFailure] = useState<RequestFailed | undefined>();
+  const [editing, setEditing] = useState(false);
   const change = useMutation({
     mutationFn: (role: Role) =>
       call(() => api.PUT("/accounts/{accountId}/role", { params: { path: { accountId: account.id } }, body: { role } })),
     onMutate: () => setFailure(undefined),
     // Updated in place, even when the new role no longer matches the role filter: a row that
     // vanished from under the pointer would look like a failure. It leaves on the next load.
-    onSuccess: (updated) => {
-      queryClient.setQueryData<InfiniteData<AccountPage, string | undefined>>(queryKey, (data) =>
-        data && {
-          ...data,
-          pages: data.pages.map((page) => ({
-            ...page,
-            items: page.items.map((item) => (item.id === updated.id ? updated : item)),
-          })),
-        },
-      );
-    },
+    onSuccess: (updated) => replaceAccount(queryClient, queryKey, updated),
     onError: (error) => setFailure(error instanceof RequestFailed ? error : new RequestFailed(undefined, undefined)),
   });
 
@@ -183,6 +176,27 @@ function AccountRow({ account, isMe, api, queryKey }: { account: Account; isMe: 
           {isMe && <span className={styles.youTag}>You</span>}
         </div>
         {detail.length > 0 && <div className={styles.accountDetail}>{detail.join(" · ")}</div>}
+        {isMe ? (
+          <Link href="/account" className={styles.rowAction}>Edit your details</Link>
+        ) : editing ? (
+          <ProfileForm
+            testId="account-edit-form"
+            account={account}
+            save={async (values) => {
+              const updated = await call(() =>
+                api.PUT("/accounts/{accountId}/profile", { params: { path: { accountId: account.id } }, body: values }),
+              );
+              replaceAccount(queryClient, queryKey, updated);
+              return updated;
+            }}
+            onSaved={() => setEditing(false)}
+            onCancel={() => setEditing(false)}
+          />
+        ) : (
+          <button type="button" className={`${styles.linkButton} ${styles.rowAction}`} onClick={() => setEditing(true)}>
+            Edit details
+          </button>
+        )}
       </td>
       <td>
         <label htmlFor={selectId} className={styles.visuallyHidden}>
@@ -217,6 +231,19 @@ function AccountRow({ account, isMe, api, queryKey }: { account: Account; isMe: 
         <time dateTime={account.createdAt}>{formatDate(account.createdAt)}</time>
       </td>
     </tr>
+  );
+}
+
+/** Puts an updated account in the cached list, wherever it is, so its row changes in place. */
+function replaceAccount(queryClient: ReturnType<typeof useQueryClient>, queryKey: QueryKey, updated: Account) {
+  queryClient.setQueryData<InfiniteData<AccountPage, string | undefined>>(queryKey, (data) =>
+    data && {
+      ...data,
+      pages: data.pages.map((page) => ({
+        ...page,
+        items: page.items.map((item) => (item.id === updated.id ? updated : item)),
+      })),
+    },
   );
 }
 

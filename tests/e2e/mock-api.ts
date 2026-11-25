@@ -14,6 +14,7 @@ type Account = components["schemas"]["Account"];
 type AccountPage = components["schemas"]["AccountPage"];
 type Role = components["schemas"]["Role"];
 type ErrorBody = components["schemas"]["Error"];
+type AccountProfile = components["schemas"]["AccountProfile"];
 type ChangeRoleBody = paths["/accounts/{accountId}/role"]["put"]["requestBody"]["content"]["application/json"];
 type MunicipalityCollection = components["schemas"]["MunicipalityCollection"];
 type Region = components["schemas"]["Region"];
@@ -34,6 +35,12 @@ type IncidentReportPage = components["schemas"]["IncidentReportPage"];
 /** Makes the next role change fail with this answer, whatever it asks for. */
 export interface RoleChangeFailure {
   status: 401 | 403 | 404;
+  code: string;
+}
+
+/** Makes the next edit of account details fail with this answer, whatever it sends. */
+export interface ProfileFailure {
+  status: 400 | 401 | 403 | 404 | 409 | 503;
   code: string;
 }
 
@@ -74,6 +81,9 @@ const admins = new Set(["admin"]);
 
 let mode: HealthMode = "ok";
 let roleChangeFailure: RoleChangeFailure | undefined;
+let profileFailure: ProfileFailure | undefined;
+/** Subjects whose details were edited here. Their old tokens must not undo the edit, as in the API. */
+let edited = new Set<string>();
 /** Oldest first, keyed by the token subject. */
 let accounts: { subject: string; account: Account }[] = [];
 
@@ -228,6 +238,8 @@ interface Claims {
   sub: string;
   preferred_username?: string;
   name?: string;
+  given_name?: string;
+  family_name?: string;
   email?: string;
 }
 
@@ -253,13 +265,47 @@ function accountOf(claims: Claims): Account {
     entry = { subject: claims.sub, account: { id: randomUUID(), role, createdAt: new Date().toISOString() } };
     accounts.push(entry);
   }
+  entry.account = edited.has(claims.sub)
+    ? { ...entry.account, username: claims.preferred_username }
+    : {
+        ...entry.account,
+        username: claims.preferred_username,
+        name: claims.name,
+        firstName: claims.given_name,
+        lastName: claims.family_name,
+        email: claims.email,
+      };
+  return entry.account;
+}
+
+/** Changes an account's details as the API does: duplicates are refused, and nothing changes on a failure. */
+async function editProfile(request: IncomingMessage, response: ServerResponse, accountId: string) {
+  const body = await readJson<AccountProfile>(request);
+  if (profileFailure) {
+    const { status, code } = profileFailure;
+    profileFailure = undefined;
+    return fail(response, status, code, "Mocked failure.");
+  }
+  const entry = accounts.find((candidate) => candidate.account.id === accountId);
+  if (!entry) {
+    return fail(response, 404, "account_not_found", "No account has that id.");
+  }
+  const taken = accounts.some(
+    (candidate) => candidate !== entry && candidate.account.email?.toLowerCase() === body.email.toLowerCase(),
+  );
+  if (taken) {
+    return fail(response, 409, "email_already_in_use", "Another account already uses that email.");
+  }
+  edited.add(entry.subject);
   entry.account = {
     ...entry.account,
-    username: claims.preferred_username,
-    name: claims.name,
-    email: claims.email,
+    firstName: body.firstName,
+    lastName: body.lastName,
+    name: `${body.firstName} ${body.lastName}`,
+    // Keycloak keeps emails in lower case.
+    email: body.email.toLowerCase(),
   };
-  return entry.account;
+  return send(response, 200, entry.account);
 }
 
 async function handle(request: IncomingMessage, response: ServerResponse) {
@@ -275,6 +321,8 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
     const { seed = [] } = await readJson<{ seed?: SeedAccount[] }>(request);
     mode = "ok";
     roleChangeFailure = undefined;
+    profileFailure = undefined;
+    edited = new Set();
     resetRegions();
     resetPhenomena();
     resetReports();
@@ -284,12 +332,16 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
       account: {
         id: randomUUID(),
         username,
-        ...(name && { name }),
+        ...(name && { name, firstName: name.split(" ")[0], lastName: name.split(" ").slice(1).join(" ") }),
         email: `${username}@example.test`,
         role,
         createdAt: at ?? new Date(createdAt + index * 60_000).toISOString(),
       },
     }));
+    return send(response, 200, {});
+  }
+  if (route === "POST /__mock/profile-failure") {
+    profileFailure = await readJson<ProfileFailure>(request);
     return send(response, 200, {});
   }
   if (route === "POST /__mock/role-change-failure") {
@@ -448,6 +500,11 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
     return send(response, 201, report);
   }
 
+  // Anyone may edit their own details.
+  if (route === "PUT /accounts/me/profile") {
+    return editProfile(request, response, me.id);
+  }
+
   if (me.role !== "admin") {
     return fail(response, 403, "forbidden", "Admins only.");
   }
@@ -558,6 +615,11 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
       Object.assign(phenomenon, { revision: phenomenon.revision + 1, updatedAt: new Date().toISOString() });
       return send(response, 200, phenomenon);
     }
+  }
+
+  const profileRoute = url.pathname.match(/^\/accounts\/([^/]+)\/profile$/);
+  if (request.method === "PUT" && profileRoute) {
+    return editProfile(request, response, profileRoute[1]!);
   }
 
   const roleRoute = url.pathname.match(/^\/accounts\/([^/]+)\/role$/);

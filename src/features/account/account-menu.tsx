@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getViewer } from "@/lib/api/server";
 import { displayName } from "./display-name";
 import { RoleBadge } from "./role-badge";
@@ -21,7 +22,7 @@ export async function AccountMenu() {
   return (
     <>
       <span className={styles.who} data-testid="signed-in-as">
-        <span className={styles.whoName}>{name ?? "Signed in"}</span>
+        <Link href="/account" className={styles.whoName}>{name ?? "Signed in"}</Link>
         {viewer.state === "signed-in" && <RoleBadge role={viewer.account.role} />}
       </span>
       <SignOutButton />

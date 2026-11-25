@@ -523,3 +523,51 @@ select.input {
     width: 100%;
   }
 }
+
+/* Editing account details */
+
+.detailsCard {
+  gap: 16px;
+  max-width: 480px;
+}
+
+.profileForm {
+  display: grid;
+  gap: 14px;
+  max-width: 420px;
+  margin-top: 12px;
+}
+
+.formField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.formActions {
+  display: flex;
+  gap: 8px;
+}
+
+.successText {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.formError {
+  margin: 0;
+  color: var(--danger);
+  font-size: 13px;
+}
+
+.rowAction {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+a.rowAction {
+  color: var(--accent);
+}

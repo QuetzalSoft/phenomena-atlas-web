@@ -5,7 +5,7 @@
     "": {
       "name": "@quetzalsoft/phenomena-atlas-web",
       "dependencies": {
-        "@quetzalsoft/phenomena-atlas-contract": "0.1.0-dev.6",
+        "@quetzalsoft/phenomena-atlas-contract": "0.1.0-dev.7",
         "@tanstack/react-query": "5.107.1",
         "jsts": "2.12.1",
         "maplibre-gl": "6.16.0",
@@ -223,7 +223,7 @@
 
     "@playwright/test": ["@playwright/test@1.65.0", "", { "dependencies": { "playwright": "1.65.0" }, "bin": { "playwright": "cli.js" } }, "sha512-iGURLGuKDLakSEl7Pgfv8h7f+XLT+V861Wfhz0zlEl5nyFuKUopdkFBPKqTllTUp06aOwPuH8iuUEb3yp3MpbQ=="],
 
-    "@quetzalsoft/phenomena-atlas-contract": ["@quetzalsoft/phenomena-atlas-contract@0.1.0-dev.6", "https://npm.pkg.github.com/download/@quetzalsoft/phenomena-atlas-contract/0.1.0-dev.6/b5a2d59f4e8b8c93caf92305f9efbf31080add53", {}, "sha512-snXjnEfbuJxViAN72lRzlRQX7EqlEB/rGaGxGqAux3E5JfgIFDbVhnBssDh2bp/Ko966nr6S/reAKypZAedYyg=="],
+    "@quetzalsoft/phenomena-atlas-contract": ["@quetzalsoft/phenomena-atlas-contract@0.1.0-dev.7", "https://npm.pkg.github.com/download/@quetzalsoft/phenomena-atlas-contract/0.1.0-dev.7/cbf0c295466bfc7f608ec80c7da8f9059087ead5", {}, "sha512-AihoKZWpdjmVKJPeHeCN/uL1IJbcviU4IWz39IvVl209OUitz/uGzKOG4gMew/K/BLPZF+5KZe7qTowfLCO0vA=="],
 
     "@rolldown/binding-android-arm-eabi": ["@rolldown/binding-android-arm-eabi@1.2.19", "", { "os": "android", "cpu": "arm" }, "sha512-e+Ebe0WT+9tbXmNKPIiC8YrWAHYwug3m6i4p3rZGGulfZri1jtI4HslT+OZnFf/OIHowWF71DTlHwXBP2SiA7A=="],
 
