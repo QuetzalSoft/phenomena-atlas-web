@@ -13,7 +13,7 @@ async function mock<T = unknown>(path: string, body: unknown = {}): Promise<T> {
   return (await response.json()) as T;
 }
 
-async function seed(...items: (Definition & { status?: Phenomenon["status"] })[]): Promise<Phenomenon[]> {
+async function seed(...items: (Definition & Partial<Pick<Phenomenon, "status" | "refreshIntervalMinutes">>)[]): Promise<Phenomenon[]> {
   return (await mock<{ items: Phenomenon[] }>("phenomena", { items })).items;
 }
 
@@ -59,6 +59,7 @@ const formula = (page: Page) => page.getByTestId("formula");
 const saveBar = (page: Page) => page.getByTestId("save-bar");
 const message = (page: Page) => page.getByTestId("phenomenon-message");
 const characteristic = (page: Page, key: string) => page.locator(`[data-testid="characteristic"][data-key="${key}"]`);
+const refresh = (page: Page) => page.getByRole("region", { name: "Map refresh" });
 
 test.beforeEach(async () => {
   await mock("reset");
@@ -231,6 +232,67 @@ test("an admin deletes a draft after confirming", async ({ page }) => {
 
   await expect(page).toHaveURL("/admin/phenomena");
   await expect(page.getByText("No phenomena yet.")).toBeVisible();
+});
+
+test("the editor shows the refresh interval in the largest unit that fits it", async ({ page }) => {
+  const [published] = await seed({ name: "Gender violence", description: "", characteristics: [severity], weightingFunction: perThousand, status: "published", refreshIntervalMinutes: 360 });
+  await signIn(page, `/admin/phenomena/${published!.id}`);
+
+  await expect(refresh(page).getByLabel("Refresh every")).toHaveValue("6");
+  await expect(refresh(page).getByLabel("Unit")).toHaveValue("hours");
+  await expect(refresh(page).getByTestId("refresh-interval-text")).toHaveText("Every 6 hours");
+  await expect(saveBar(page)).toHaveCount(0);
+});
+
+test("a new refresh interval is sent in minutes, and the saved one is shown", async ({ page }) => {
+  const [published] = await seed({ name: "Gender violence", description: "", characteristics: [severity], weightingFunction: perThousand, status: "published" });
+  await signIn(page, `/admin/phenomena/${published!.id}`);
+  await expect(refresh(page).getByTestId("refresh-interval-text")).toHaveText("Every hour");
+
+  await refresh(page).getByLabel("Refresh every").fill("2");
+  await refresh(page).getByLabel("Unit").selectOption("days");
+  await expect(refresh(page).getByTestId("refresh-interval-text")).toHaveText("Every 2 days");
+
+  const sent = page.waitForRequest((request) => request.method() === "PUT" && request.url().endsWith(`/phenomena/${published!.id}`));
+  await saveBar(page).getByRole("button", { name: "Save" }).click();
+  expect((await sent).postDataJSON()).toMatchObject({ refreshIntervalMinutes: 2880 });
+  await expect(message(page)).toHaveText("Saved.");
+  expect((await stored(published!.id)).refreshIntervalMinutes).toBe(2880);
+
+  await page.reload();
+  await expect(refresh(page).getByLabel("Refresh every")).toHaveValue("2");
+  await expect(refresh(page).getByLabel("Unit")).toHaveValue("days");
+});
+
+test("a refresh interval out of range is pointed out and cannot be saved", async ({ page }) => {
+  const [published] = await seed({ name: "Gender violence", description: "", characteristics: [severity], weightingFunction: perThousand, status: "published" });
+  await signIn(page, `/admin/phenomena/${published!.id}`);
+  const saves: string[] = [];
+  page.on("request", (request) => {
+    if (request.method() === "PUT") saves.push(request.url());
+  });
+
+  await refresh(page).getByLabel("Refresh every").fill("4");
+  await refresh(page).getByLabel("Unit").selectOption("minutes");
+  await saveBar(page).getByRole("button", { name: "Save" }).click();
+
+  await expect(refresh(page).getByLabel("Refresh every")).toHaveAttribute("aria-invalid", "true");
+  await expect(refresh(page).getByText("Use an interval from 5 minutes to 30 days.")).toBeVisible();
+  await expect(saveBar(page)).toContainText("One thing needs fixing before saving.");
+  await expect(saveBar(page).getByRole("button", { name: "Save" })).toBeDisabled();
+  expect(saves).toEqual([]);
+});
+
+test("changing only the refresh interval leaves unsaved changes, and the same interval in another unit does not", async ({ page }) => {
+  const [published] = await seed({ name: "Gender violence", description: "", characteristics: [severity], weightingFunction: perThousand, status: "published" });
+  await signIn(page, `/admin/phenomena/${published!.id}`);
+
+  await refresh(page).getByLabel("Refresh every").fill("60");
+  await refresh(page).getByLabel("Unit").selectOption("minutes");
+  await expect(saveBar(page)).toHaveCount(0);
+
+  await refresh(page).getByLabel("Refresh every").fill("90");
+  await expect(saveBar(page)).toContainText("You have unsaved changes.");
 });
 
 test("the editor fits a phone screen", async ({ page }) => {

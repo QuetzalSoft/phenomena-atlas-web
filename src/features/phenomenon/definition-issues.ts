@@ -1,8 +1,10 @@
 import type { components } from "@quetzalsoft/phenomena-atlas-contract";
 import { keyPattern } from "./characteristic-draft";
+import { refreshIntervalIssue } from "./refresh-interval";
 import { aggregateInfo, maxDepth, maxNodes, rootPath, size, type WeightingExpression } from "./weighting-tree";
 
-type Definition = components["schemas"]["PhenomenonDefinition"];
+/** What a change sends, but the revision it is based on. */
+type Definition = Omit<components["schemas"]["PhenomenonChange"], "baseRevision">;
 type Status = components["schemas"]["PhenomenonStatus"];
 
 /** Something to fix before saving, at a path the API would use for the same problem. */
@@ -19,6 +21,12 @@ export function findIssues(definition: Definition, status: Status): Issue[] {
   const issues: Issue[] = [];
   if (definition.name.trim() === "") {
     issues.push({ path: "/name", message: "Give the phenomenon a name." });
+  }
+  if (definition.refreshIntervalMinutes !== undefined) {
+    const message = refreshIntervalIssue(definition.refreshIntervalMinutes);
+    if (message) {
+      issues.push({ path: "/refreshIntervalMinutes", message });
+    }
   }
 
   const keys = new Set<string>();

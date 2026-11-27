@@ -17,7 +17,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@quetzalsoft/phenomena-atlas-contract": "0.1.0-dev.7",
+    "@quetzalsoft/phenomena-atlas-contract": "0.1.0-dev.8",
     "@tanstack/react-query": "5.107.1",
     "jsts": "2.12.1",
     "maplibre-gl": "6.16.0",

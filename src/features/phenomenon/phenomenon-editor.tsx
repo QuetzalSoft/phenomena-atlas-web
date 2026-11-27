@@ -12,21 +12,26 @@ import { useSessionApi } from "@/lib/api/use-session-api";
 import { newCharacteristic } from "./characteristic-draft";
 import { type CharacteristicItem, CharacteristicsEditor } from "./characteristics-editor";
 import { findIssues } from "./definition-issues";
+import { NumberField } from "./number-field";
 import { failureCopy, statusInfo } from "./phenomenon-copy";
+import { amountOf, type IntervalAmount, intervalText, type IntervalUnit, intervalUnits, minutesOf } from "./refresh-interval";
 import { StatusBadge } from "./status-badge";
 import { WeightingEditor } from "./weighting-editor";
 import { blankPaths, renameKey, type WeightingExpression } from "./weighting-tree";
 import styles from "./phenomenon.module.css";
 
 type Phenomenon = components["schemas"]["Phenomenon"];
-type Definition = components["schemas"]["PhenomenonDefinition"];
 type Status = components["schemas"]["PhenomenonStatus"];
+type PhenomenonChange = components["schemas"]["PhenomenonChange"];
+/** What a save sends, but the revision it is based on. */
+type Change = Omit<PhenomenonChange, "baseRevision"> & { refreshIntervalMinutes: number };
 
 interface Draft {
   name: string;
   description: string;
   items: CharacteristicItem[];
   weightingFunction: WeightingExpression;
+  refreshInterval: IntervalAmount;
 }
 
 interface Message {
@@ -44,20 +49,32 @@ function draftOf(phenomenon: Phenomenon): Draft {
     description: phenomenon.description,
     items: phenomenon.characteristics.map((characteristic) => ({ uid: nextUid(), value: characteristic, saved: characteristic, keyEdited: false })),
     weightingFunction: phenomenon.weightingFunction,
+    refreshInterval: amountOf(phenomenon.refreshIntervalMinutes),
   };
 }
 
-function definitionOf(draft: Draft): Definition {
+/**
+ * The change a save sends. It always carries the refresh interval, so the API never falls
+ * back to keeping the current one. NaN while the interval field holds no number.
+ */
+function changeOf(draft: Draft): Change {
   return {
     name: draft.name.trim(),
     description: draft.description.trim(),
     characteristics: draft.items.map((item) => item.value),
     weightingFunction: draft.weightingFunction,
+    refreshIntervalMinutes: minutesOf(draft.refreshInterval),
   };
 }
 
-function definitionOfSaved(phenomenon: Phenomenon): Definition {
-  return { name: phenomenon.name, description: phenomenon.description, characteristics: phenomenon.characteristics, weightingFunction: phenomenon.weightingFunction };
+function changeOfSaved(phenomenon: Phenomenon): Change {
+  return {
+    name: phenomenon.name,
+    description: phenomenon.description,
+    characteristics: phenomenon.characteristics,
+    weightingFunction: phenomenon.weightingFunction,
+    refreshIntervalMinutes: phenomenon.refreshIntervalMinutes,
+  };
 }
 
 /** An admin defines one phenomenon: its details, its characteristics and its weighting function. */
@@ -72,8 +89,9 @@ export function PhenomenonEditor({ initial }: { initial: Phenomenon }) {
   // Empty fields are only pointed out once the admin tries to save, not while they type.
   const [triedToSave, setTriedToSave] = useState(false);
 
-  const definition = useMemo(() => definitionOf(draft), [draft]);
-  const dirty = JSON.stringify(definition) !== JSON.stringify(definitionOfSaved(saved));
+  const definition = useMemo(() => changeOf(draft), [draft]);
+  // Compares minutes, so showing the same interval in another unit is not a change.
+  const dirty = JSON.stringify(definition) !== JSON.stringify(changeOfSaved(saved));
   const allIssues = useMemo(() => findIssues(definition, saved.status), [definition, saved.status]);
   // Problems in the function follow from other edits, such as retiring a characteristic it
   // uses, so they show straight away.
@@ -82,6 +100,7 @@ export function PhenomenonEditor({ initial }: { initial: Phenomenon }) {
     [allIssues, triedToSave],
   );
   const nameIssue = issues.get("/name");
+  const intervalIssue = issues.get("/refreshIntervalMinutes");
 
   const change = (patch: Partial<Draft>) => {
     setDraft((current) => ({ ...current, ...patch }));
@@ -123,7 +142,7 @@ export function PhenomenonEditor({ initial }: { initial: Phenomenon }) {
 
   const save = useMutation({
     mutationFn: () =>
-      call(() => api.PUT("/phenomena/{phenomenonId}", { params: { path: { phenomenonId: saved.id } }, body: { baseRevision: saved.revision, ...definition } })),
+      call(() => api.PUT("/phenomena/{phenomenonId}", { params: { path: { phenomenonId: saved.id } }, body: { baseRevision: saved.revision, ...definition } satisfies PhenomenonChange })),
     onMutate: () => setMessage(undefined),
     onSuccess: (updated) => {
       setSaved(updated);
@@ -282,6 +301,23 @@ export function PhenomenonEditor({ initial }: { initial: Phenomenon }) {
             disabled={busy}
           />
         </section>
+
+        <section className={styles.card} aria-labelledby="refresh-title">
+          <div>
+            <h2 id="refresh-title" className={styles.cardTitle}>Map refresh</h2>
+            <p className={styles.muted}>
+              How often the index on this phenomenon&apos;s map is recomputed. It is recomputed at least once per interval, and in between the map shows the
+              last index computed. Public once published.
+            </p>
+          </div>
+          <RefreshIntervalField
+            value={draft.refreshInterval}
+            minutes={definition.refreshIntervalMinutes}
+            issue={intervalIssue}
+            disabled={busy}
+            onChange={(refreshInterval) => change({ refreshInterval })}
+          />
+        </section>
       </div>
 
       {(dirty || message) && (
@@ -307,6 +343,55 @@ export function PhenomenonEditor({ initial }: { initial: Phenomenon }) {
         </div>
       )}
     </>
+  );
+}
+
+interface RefreshIntervalFieldProps {
+  value: IntervalAmount;
+  /** The interval in minutes, NaN while the amount is not a number. */
+  minutes: number;
+  issue: string | undefined;
+  disabled: boolean;
+  onChange: (value: IntervalAmount) => void;
+}
+
+/** An amount and a unit. Changing the unit keeps the amount: 6 hours becomes 6 days. */
+function RefreshIntervalField({ value, minutes, issue, disabled, onChange }: RefreshIntervalFieldProps) {
+  const describedBy = issue ? "refresh-issue" : "refresh-text";
+  return (
+    <div className={styles.field}>
+      <label htmlFor="refresh-amount">Refresh every</label>
+      <div className={styles.intervalRow}>
+        <NumberField
+          id="refresh-amount"
+          className={styles.input}
+          value={value.amount}
+          min={0}
+          disabled={disabled}
+          aria-invalid={!!issue || undefined}
+          aria-describedby={describedBy}
+          onValueChange={(amount) => onChange({ ...value, amount })}
+        />
+        <select
+          className={styles.input}
+          aria-label="Unit"
+          value={value.unit}
+          disabled={disabled}
+          onChange={(event) => onChange({ ...value, unit: event.target.value as IntervalUnit })}
+        >
+          {[...intervalUnits].reverse().map((info) => (
+            <option key={info.unit} value={info.unit}>{info.plural}</option>
+          ))}
+        </select>
+      </div>
+      {issue ? (
+        <span id="refresh-issue" className={styles.errorText}>{issue}</span>
+      ) : (
+        <span id="refresh-text" className={styles.hint} data-testid="refresh-interval-text">
+          {Number.isInteger(minutes) ? intervalText(minutes) : ""}
+        </span>
+      )}
+    </div>
   );
 }
 

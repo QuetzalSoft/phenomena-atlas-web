@@ -166,9 +166,10 @@ function resetPhenomena() {
 }
 resetPhenomena();
 
-function storePhenomenon(definition: PhenomenonDefinition, status: Phenomenon["status"] = "draft"): Phenomenon {
+/** A new phenomenon starts with a refresh interval of 60 minutes, as the API's do. */
+function storePhenomenon(definition: PhenomenonDefinition, status: Phenomenon["status"] = "draft", refreshIntervalMinutes = 60): Phenomenon {
   const now = new Date().toISOString();
-  const phenomenon: Phenomenon = { id: nextPhenomenonId++, ...definition, status, revision: 1, createdAt: now, updatedAt: now };
+  const phenomenon: Phenomenon = { id: nextPhenomenonId++, ...definition, refreshIntervalMinutes, status, revision: 1, createdAt: now, updatedAt: now };
   phenomena.push(phenomenon);
   return phenomenon;
 }
@@ -351,8 +352,10 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
 
   if (route === "POST /__mock/phenomena") {
     // Stores phenomena as if an admin had defined them before the test.
-    const { items } = await readJson<{ items: (PhenomenonDefinition & { status?: Phenomenon["status"] })[] }>(request);
-    return send(response, 200, { items: items.map(({ status, ...definition }) => storePhenomenon(definition, status)) });
+    const { items } = await readJson<{ items: (PhenomenonDefinition & Partial<Pick<Phenomenon, "status" | "refreshIntervalMinutes">>)[] }>(request);
+    return send(response, 200, {
+      items: items.map(({ status, refreshIntervalMinutes, ...definition }) => storePhenomenon(definition, status, refreshIntervalMinutes)),
+    });
   }
   if (route === "POST /__mock/report-failure") {
     reportFailure = await readJson<ReportFailure>(request);
@@ -609,8 +612,9 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
         }
         Object.assign(phenomenon, { status: body.status });
       } else {
-        const { name, description, characteristics, weightingFunction } = body;
-        Object.assign(phenomenon, { name, description, characteristics, weightingFunction });
+        const { name, description, characteristics, weightingFunction, refreshIntervalMinutes } = body;
+        // As the API does, a change without an interval keeps the current one.
+        Object.assign(phenomenon, { name, description, characteristics, weightingFunction, refreshIntervalMinutes: refreshIntervalMinutes ?? phenomenon.refreshIntervalMinutes });
       }
       Object.assign(phenomenon, { revision: phenomenon.revision + 1, updatedAt: new Date().toISOString() });
       return send(response, 200, phenomenon);

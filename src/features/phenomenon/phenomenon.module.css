@@ -759,3 +759,19 @@ textarea.input {
     text-align: left;
   }
 }
+
+/* The refresh interval: an amount and its unit, side by side. */
+.intervalRow {
+  display: flex;
+  gap: 8px;
+  max-width: 320px;
+}
+
+.intervalRow > input {
+  flex: 1 1 0;
+}
+
+.intervalRow > select {
+  flex: 0 0 auto;
+  width: auto;
+}
